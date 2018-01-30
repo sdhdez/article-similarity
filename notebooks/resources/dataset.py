@@ -54,14 +54,17 @@ def filter_stopwords_nltk(tokens):
 def get_bag_of_words(tokens):
     return filter_stopwords_nltk(tokens)
 
-def create_bow_from_files_in(documents_path, bag_of_words_file): 
+def create_bow_from_files_in(documents_path): 
+    generic_name_bow = "/bag_of_words_by_document.db"
+    bag_of_words_file = documents_path + generic_name_bow
     all_bag_of_words = []
     for pfilename in get_filenames(documents_path):
         if pfilename[-3:] != "txt":
             continue
         for indexdoc, text in get_target_text(pfilename):
             bag_of_words = get_bag_of_words(get_tokens_default(text.lower()))
-            all_bag_of_words.append({ 'set': bag_of_words, 
+            all_bag_of_words.append({ 
+                                'set': bag_of_words, 
                                 'cardinality': len(bag_of_words),
                                 'index': indexdoc
                                 })
