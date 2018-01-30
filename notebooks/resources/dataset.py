@@ -2,6 +2,7 @@ import sys, os
 import string
 from nltk.tokenize import TreebankWordTokenizer
 from nltk.corpus import stopwords
+import numpy as np
 
 # init
 penn_tree_bank_tokenizer = TreebankWordTokenizer()
@@ -52,3 +53,16 @@ def filter_stopwords_nltk(tokens):
 
 def get_bag_of_words(tokens):
     return filter_stopwords_nltk(tokens)
+
+def create_bow_from_files_in(documents_path, bag_of_words_file): 
+    all_bag_of_words = []
+    for pfilename in get_filenames(documents_path):
+        if pfilename[-3:] != "txt":
+            continue
+        for indexdoc, text in get_target_text(pfilename):
+            bag_of_words = get_bag_of_words(get_tokens_default(text.lower()))
+            all_bag_of_words.append({ 'set': bag_of_words, 
+                                'cardinality': len(bag_of_words),
+                                'index': indexdoc
+                                })
+    return all_bag_of_words
