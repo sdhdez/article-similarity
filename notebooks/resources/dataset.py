@@ -1,13 +1,11 @@
-import sys, os
+import sys, os.path
 import string
-from nltk.tokenize import TreebankWordTokenizer
-from nltk.corpus import stopwords
 import numpy as np
+from whoosh.index import create_in
+from whoosh.fields import Schema, TEXT, ID, KEYWORD, NUMERIC
+from whoosh.analysis import StemmingAnalyzer, RegexTokenizer, LowercaseFilter, StopFilter
 
-# init
-penn_tree_bank_tokenizer = TreebankWordTokenizer()
-nltk_stopwords = set(stopwords.words('english'))
-punctuation_table = str.maketrans("", "", string.punctuation)
+from whoosh.writing import BufferedWriter
 
 def get_filenames(path_resources):
     file_count = 0
@@ -21,51 +19,54 @@ def get_filenames(path_resources):
 
 def get_target_text(pfilename):
     fin = open(pfilename, "r", encoding="utf-8")
-    indexdoc, indexdoc_tmp, text = "", "", ""
+    indexdoc, indexdoc_tmp, title, text = u"", u"", u"", u""
     for lf in fin:
         ldoc = lf.strip("\n")
         if ldoc:
             if ldoc[:2] == "#*": # Title 
-                text += ldoc[2:]
+                title = ldoc[2:]
             if ldoc[:6] == "#index": # Index 
                 indexdoc_tmp = ldoc[1:]
             if ldoc[:2] == "#!": # Abstract 
-                text += ldoc[2:]
+                text = ldoc[2:]
         elif indexdoc_tmp and indexdoc != indexdoc_tmp:
             indexdoc = indexdoc_tmp
-            yield indexdoc, text
-            text = ""
-
-def filter_puntuation(text):
-    return text.translate(punctuation_table)
-
-def get_tokens_blanks(text):
-    return [t for t in filter_puntuation(text).split(" ") if t]
-
-def get_tokens_penn_tree_bank(text):
-    return penn_tree_bank_tokenizer.tokenize(text)
-
-def get_tokens_default(text):
-    return set(get_tokens_blanks(text))
-
-def filter_stopwords_nltk(tokens):
-    return tokens - nltk_stopwords
-
-def get_bag_of_words(tokens):
-    return filter_stopwords_nltk(tokens)
+            yield indexdoc, title, title if not text else title + " " + text
+            title, text = u"", u""
 
 def create_bow_from_files_in(documents_path): 
-    generic_name_bow = "/bag_of_words_by_document.db"
-    bag_of_words_file = documents_path + generic_name_bow
-    all_bag_of_words = []
+    data_batch = 50000
+
+    whoosh_index = documents_path + "/index-data"
+    if not os.path.exists(whoosh_index):
+        os.mkdir(whoosh_index)
+
+    schema = Schema(indexdoc=ID(stored=True), 
+                        title=TEXT(analyzer=StemmingAnalyzer(), stored=True), 
+                        content=TEXT(analyzer=StemmingAnalyzer(), stored=True),
+                        bag_of_words=KEYWORD(stored=True, scorable=True),
+                        bag_of_words_title=KEYWORD(stored=True, scorable=True),
+                        cardinality=NUMERIC(int, 32, signed=False, stored=True))
+    ix = create_in(whoosh_index, schema)
+    writer = ix.writer(limitmb=2048)
+    analizer = RegexTokenizer() | LowercaseFilter() | StopFilter()
+
     for pfilename in get_filenames(documents_path):
         if pfilename[-3:] != "txt":
             continue
-        for indexdoc, text in get_target_text(pfilename):
-            bag_of_words = get_bag_of_words(get_tokens_default(text.lower()))
-            all_bag_of_words.append({ 
-                                'set': bag_of_words, 
-                                'cardinality': len(bag_of_words),
-                                'index': indexdoc
-                                })
-    return all_bag_of_words
+        i = 1
+        for indexdoc, title, text in get_target_text(pfilename):
+            tokens = set([t.text for t in analizer(text)])
+            tokens_title = " ".join(set([t.text for t in analizer(title)]))
+            cardinality = len(tokens)
+            tokens = " ".join(tokens)
+            writer.add_document(indexdoc=indexdoc, 
+                        title=title, 
+                        content=text, 
+                        bag_of_words=tokens,
+                        bag_of_words_title=tokens_title,
+                        cardinality=cardinality)
+            if i % data_batch == 0:
+                print("N: ", i)
+            i += 1
+    writer.commit()
