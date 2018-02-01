@@ -6,5 +6,8 @@ if __name__ == "__main__":
     print("Main from command-line.", file=sys.stderr)
     data_path = sys.argv[1] if sys.argv[1:2] else "./resources/test"
     print("Loading jaccard ...")
-    mindexing.load_matrix_jaccard_sim(data_path)
+    csr_matrix_jaccard = mindexing.load_matrix_jaccard_sim(data_path)
+    print(csr_matrix_jaccard)
+    #print("Loading word2vec ...")
+    #dmatrix_word2vec = mindexing.load_matrix_word2vec_sim(data_path)
 

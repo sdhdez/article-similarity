@@ -121,7 +121,7 @@ def index_word2vec(data_path, index_data_sample_path):
     index_word2vec_path = data_path + INDEX_WORD2VEC
 
     if os.path.exists(index_data_sample_path):
-        print("Opening jaccard measures ...")
+        print("Opening data samples ...")
         ix_data_sample = open_dir(index_data_sample_path)
 
         schema = Schema(setA=ID(stored=True), setB=ID(stored=True),
@@ -153,13 +153,13 @@ def index_word2vec(data_path, index_data_sample_path):
                                 pass
                         n_pairs = len(pairs)
                         mean_sim = (sum([f for s,f in pairs])/n_pairs) if n_pairs > 0.0 else 0.0
-                        pairs_scores=" ".join([(s + str(f)) for s,f in pairs])
+                        pairs_scores = " ".join([(s + str(f)) for s,f in pairs])
                         if (doc_i + 1) % 50 == 0:
                             print(doc_i + 1, ". ", doc["indexdoc"], rdoc["indexdoc"], mean_sim)
                         word2vec_sim = mean_sim
                         if word2vec_sim > 0.0:
-                            writer.add_document(setA=doc["bag_of_words"], 
-                                                setB=rdoc["bag_of_words"],
+                            writer.add_document(setA=doc["indexdoc"], 
+                                                setB=rdoc["indexdoc"],
                                                 sim=word2vec_sim, 
                                                 dis=1.0-word2vec_sim,
                                                 n_pairs=n_pairs,
@@ -201,12 +201,12 @@ def load_matrix_jaccard_sim(data_path):
                                 dmatrix[j,i] = measures[setA][setB]
                     j += 1
             print(i+1,j, ndocs)
-            return dmatrix
+            return dmatrix.asformat('csr')
 
 def load_matrix_word2vec_sim(data_path):
     index_word2vec_path = data_path + INDEX_WORD2VEC
-    if os.path.exists(index_jaccard_path):
-        print("Loading indexed jaccard ...")
+    if os.path.exists(index_word2vec_path):
+        print("Loading indexed word2vec ...")
         ix_word2vec = open_dir(index_word2vec_path)
         with ix_word2vec.reader() as reader:
             ndocs = reader.doc_count()
@@ -230,4 +230,4 @@ def load_matrix_word2vec_sim(data_path):
                                 dmatrix[j,i] = measures[setA][setB]
                     j += 1
             print(i+1,j, ndocs)
-            return dmatrix
+            return dmatrix.asformat('csr')
