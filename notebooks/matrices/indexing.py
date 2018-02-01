@@ -120,7 +120,6 @@ def index_word2vec(data_path, index_data_sample_path):
 
     index_word2vec_path = data_path + INDEX_WORD2VEC
 
-
     if os.path.exists(index_data_sample_path):
         print("Opening jaccard measures ...")
         ix_data_sample = open_dir(index_data_sample_path)
@@ -155,7 +154,8 @@ def index_word2vec(data_path, index_data_sample_path):
                         n_pairs = len(pairs)
                         mean_sim = (sum([f for s,f in pairs])/n_pairs) if n_pairs > 0.0 else 0.0
                         pairs_scores=" ".join([(s + str(f)) for s,f in pairs])
-                        print(". ", doc["indexdoc"], rdoc["indexdoc"], mean_sim)
+                        if (doc_i + 1) % 50 == 0:
+                            print(doc_i + 1, ". ", doc["indexdoc"], rdoc["indexdoc"], mean_sim)
                         word2vec_sim = mean_sim
                         if word2vec_sim > 0.0:
                             writer.add_document(setA=doc["bag_of_words"], 
@@ -174,25 +174,60 @@ def index_word2vec(data_path, index_data_sample_path):
         with ix_word2vec.reader() as reader:
             print("Indexed measures (word2vec): ", reader.doc_count())
 
-#def get_matrix_jaccard_sim(jaccard_path):
-#    if os.path.exists(jaccard_path):
-#        print("Loading data...")
-#        ix_data_sample = open_dir(jaccard_path)
-#        parser = QueryParser("bag_of_words", ix_data_sample.schema)
-#
-#        with ix_data_sample.reader() as reader:
-#            jaccard_measures = reader.doc_count()
-#            N = jaccard_measures
-#            dmatrix = dok_matrix((N, N), dtype=np.float32)
-#            i = 0
-#            while i < N:
-#                j = i
-#                while j < N:
-#                    jd = jaccard_index(bag_of_words[i], bag_of_words[j])
-#                    if jd != 0.0:
-#                        dmatrix[i,j] = jd
-#                        if i != j:
-#                            dmatrix[j,i] = jd
-#                    j += 1
-#                i += 1
-#            return dmatrix
+def load_matrix_jaccard_sim(data_path):
+    index_jaccard_path = data_path + INDEX_JACCARD
+    if os.path.exists(index_jaccard_path):
+        print("Loading indexed jaccard ...")
+        ix_jaccard = open_dir(index_jaccard_path)
+        with ix_jaccard.reader() as reader:
+            ndocs = reader.doc_count()
+            measures = {}
+            for doc_i, doc in reader.iter_docs():
+                measures.setdefault(doc['setA'], {})
+                measures[doc['setA']][doc['setB']] = doc['sim']
+            field_list = (list(set([a for a in reader.field_terms('setA')] + [b for b in reader.field_terms('setB')])))
+
+            N = len(field_list)
+            dmatrix = dok_matrix((N, N), dtype=np.float32)
+            for i, f in enumerate(field_list):
+                j = i
+                while j < N:
+                    setA = field_list[i]
+                    setB = field_list[j]
+                    if setA in measures:
+                        if setB in measures[setA]:
+                            dmatrix[i,j] = measures[setA][setB]
+                            if i != j:
+                                dmatrix[j,i] = measures[setA][setB]
+                    j += 1
+            print(i+1,j, ndocs)
+            return dmatrix
+
+def load_matrix_word2vec_sim(data_path):
+    index_word2vec_path = data_path + INDEX_WORD2VEC
+    if os.path.exists(index_jaccard_path):
+        print("Loading indexed jaccard ...")
+        ix_word2vec = open_dir(index_word2vec_path)
+        with ix_word2vec.reader() as reader:
+            ndocs = reader.doc_count()
+            measures = {}
+            for doc_i, doc in reader.iter_docs():
+                measures.setdefault(doc['setA'], {})
+                measures[doc['setA']][doc['setB']] = doc['sim']
+            field_list = (list(set([a for a in reader.field_terms('setA')] + [b for b in reader.field_terms('setB')])))
+
+            N = len(field_list)
+            dmatrix = dok_matrix((N, N), dtype=np.float32)
+            for i, f in enumerate(field_list):
+                j = i
+                while j < N:
+                    setA = field_list[i]
+                    setB = field_list[j]
+                    if setA in measures:
+                        if setB in measures[setA]:
+                            dmatrix[i,j] = measures[setA][setB]
+                            if i != j:
+                                dmatrix[j,i] = measures[setA][setB]
+                    j += 1
+            print(i+1,j, ndocs)
+            return dmatrix
