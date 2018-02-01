@@ -1,40 +1,22 @@
 import os.path
 import numpy as np
 from scipy.sparse import dok_matrix
+import random
 from whoosh.index import open_dir, create_in
 from whoosh.fields import Schema, TEXT, ID, KEYWORD, NUMERIC
 from whoosh import qparser
 from whoosh.qparser import QueryParser
 from whoosh.query import Term, And
 
-def jaccard_index(set_A, set_B):
-    card_intersection_A_B = float(len(set_A['set'] & set_B['set']))
-    return card_intersection_A_B /(set_A['cardinality'] + set_B['cardinality'] - card_intersection_A_B)
+INDEX_DATA = "/index-data"
+INDEX_JACCARD = "/index-jaccard"
 
-# def jaccard_distance(set_A, set_B):
-#    return 1.0 - jaccard_index(set_A, set_B)
-
-def test_whoosh(data_path):
-    index_data_path = data_path + "/index-data"
-    if os.path.exists(index_data_path):
-        print("Opening data ...")
-        ix = open_dir(index_data_path)
-        with ix.searcher() as searcher:
-            parser = QueryParser("bag_of_words", ix.schema, group=qparser.OrGroup)
-            myquery = parser.parse(u'regression models them determine new network propose outperforms microbiological evolutionary data use benchmark been features based learning obtain between method sets linear applied hybridation afterwards good has classification product obtained covariates techniques model promising apply structure neural part space terms compared results seven complexity unit classifier well compromise very other accuracy obtaining algorithm first perform binary step nonlinear several logistic using problem they derived hybrid basic')
-            print(myquery)
-            result = searcher.search(myquery)
-            print(len(result))
-            for e in result:
-                print(str(e['bag_of_words']).encode('utf8'))
-
-def index_similarities(data_path):
-    index_data_path = data_path + "/index-data"
-    index_jaccard_path = data_path + "/index-jaccard"
+def index_jaccard(data_path, nrand=100.0):
+    index_data_path = data_path + INDEX_DATA
+    index_jaccard_path = data_path + INDEX_JACCARD + (("-" + str(nrand)) if nrand else "")
 
     if os.path.exists(index_data_path):
         print("Opening data ...")
-        data_batch = 10000
         ix_data = open_dir(index_data_path)
         parser = QueryParser("bag_of_words", ix_data.schema, group=qparser.OrGroup)
 
@@ -52,9 +34,19 @@ def index_similarities(data_path):
 
         with ix_data.reader() as reader:
             with ix_data.searcher() as searcher:
+                fixed_seed = reader.doc_count()
+                roulette_threshold = (1.2*nrand)/fixed_seed
+                random.seed(fixed_seed)
+                print("Indexed documents: ", fixed_seed, roulette_threshold)
+                i, docdict = 0, {} 
                 for doc_i, doc in reader.iter_docs():
+                    if i >= nrand:
+                        break 
+                    if random.random() > roulette_threshold:
+                        continue
                     q = parser.parse(doc['bag_of_words_title'])
-                    result = searcher.search(q)
+                    result = searcher.search(q, limit = None)
+                    print(". ", doc["indexdoc"], len(result))
 
                     setA = set(doc['bag_of_words'].split())
                     cA = doc['cardinality']
@@ -70,12 +62,13 @@ def index_similarities(data_path):
                                             cAB=cAB, 
                                             sim=jaccard_sim, 
                                             dis=1.0-jaccard_sim)
-                        
-                    if (doc_i + 1) % data_batch == 0:
-                        print("N: ", doc_i) 
+                        docdict[rdoc["indexdoc"]] = 1
+                    i += 1
+                print("Random documents: ", i)
+                print("Sample size: ", len(docdict))
         writer.commit()
 
-def similarity_matrix(data_path):
+def get_matrix(index_path):
     bag_of_words = []
     N = len(bag_of_words)
     dmatrix = dok_matrix((N, N), dtype=np.float32)
