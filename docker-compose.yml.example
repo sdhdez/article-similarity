@@ -1,0 +1,20 @@
+version: '3'
+services:
+  tf-extras:
+    image: sdavidhdez/tensorflow-py3-extras:latest
+    restart: always
+    container_name: 'tf-extras'
+    ports:
+      - '8888:8888'
+    volumes:
+      - './notebooks:/notebooks'
+      - './volumes/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py'
+    # environment:
+    #  - VIRTUAL_HOST=jlab.totum.one
+    #  - VIRTUAL_PORT=8888
+    #  - LETSENCRYPT_HOST= 'jlab.totum.one'
+
+#networks:
+#  default:
+#    external:
+#      name: webproxy
