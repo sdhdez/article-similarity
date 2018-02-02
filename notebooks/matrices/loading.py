@@ -70,7 +70,7 @@ def load_matrix_jaccard_sim(data_path):
                 np.save(index_jaccard_np_matrix_name, np_matrix)
                 return np_matrix
         else: 
-            print("Loading matrix ...")
+            print("Loading saved matrix ...")
             return np.load(index_jaccard_np_matrix_file) 
 
 def load_matrix_word2vec_sim(data_path):
@@ -89,5 +89,5 @@ def load_matrix_word2vec_sim(data_path):
                 np.save(index_word2vec_np_matrix_name, np_matrix)
                 return np_matrix
         else: 
-            print("Loading matrix ...")
+            print("Loading saved matrix ...")
             return np.load(index_word2vec_np_matrix_file) 
