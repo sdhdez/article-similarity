@@ -52,7 +52,7 @@ def get_matrix(measures, field_list):
                 dmatrix[i,j] = 0
             n_docs += 1
             j += 1
-    print(i+1,j, len(measures))
+    print(i+1,j)
     return dmatrix.asformat('csr')
 
 def load_matrix_jaccard_sim(data_path):
@@ -63,7 +63,7 @@ def load_matrix_jaccard_sim(data_path):
         with ix_jaccard.reader() as reader:
             measures = get_measures(reader)
             field_list = get_document_ids(data_path)
-            print("Preparing to read ", len(field_list), "measures")
+            print("Preparing to read ...")
             return get_matrix(measures, field_list); 
 
 def load_matrix_word2vec_sim(data_path):
@@ -74,6 +74,6 @@ def load_matrix_word2vec_sim(data_path):
         with ix_word2vec.reader() as reader:
             measures = get_measures(reader)
             field_list = get_document_ids(data_path)
-            print("Preparing to read ", len(field_list), "measures")
+            print("Preparing to read ...", len(field_list))
             return get_matrix(measures, field_list); 
 
