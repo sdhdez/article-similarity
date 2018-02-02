@@ -8,6 +8,6 @@ if __name__ == "__main__":
     print("Loading jaccard ...")
     csr_matrix_jaccard = mindexing.load_matrix_jaccard_sim(data_path)
     print(csr_matrix_jaccard)
-    #print("Loading word2vec ...")
-    #dmatrix_word2vec = mindexing.load_matrix_word2vec_sim(data_path)
+    print("Loading word2vec ...")
+    csr_matrix_word2vec = mindexing.load_matrix_word2vec_full_sim(data_path)
 

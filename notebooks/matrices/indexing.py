@@ -4,7 +4,7 @@ import random
 import itertools
 from scipy.sparse import dok_matrix
 from whoosh.index import open_dir, create_in
-from whoosh.fields import Schema, TEXT, ID, KEYWORD, NUMERIC
+from whoosh.fields import Schema, TEXT, ID, KEYWORD, NUMERIC, STORED
 from whoosh import qparser
 from whoosh.qparser import QueryParser
 from whoosh.query import Term, And
@@ -78,8 +78,8 @@ def index_jaccard(data_path, index_data_sample_path):
                         cAB=NUMERIC(int, 32, signed=False, stored=True),
                         sim=NUMERIC(float, stored=True),
                         dis=NUMERIC(float, stored=True),
-                        bag_of_words_A=KEYWORD(stored=True, scorable=True),
-                        bag_of_words_B=KEYWORD(stored=True, scorable=True)
+                        bag_of_words_A=STORED(),
+                        bag_of_words_B=STORED()
                         )
         if not os.path.exists(index_jaccard_path):
             os.mkdir(index_jaccard_path)
@@ -127,10 +127,10 @@ def index_word2vec(data_path, index_data_sample_path):
         schema = Schema(setA=ID(stored=True), setB=ID(stored=True),
                         sim=NUMERIC(float, stored=True),
                         dis=NUMERIC(float, stored=True),
-                        n_pairs=NUMERIC(int, stored=True),
-                        pairs_scores=TEXT(stored=True),
-                        bag_of_words_A=KEYWORD(stored=True, scorable=True),
-                        bag_of_words_B=KEYWORD(stored=True, scorable=True)
+                        n_pairs=NUMERIC(int, stored=True) #,
+                        # pairs_scores=STORED(),
+                        # bag_of_words_A=STORED(),
+                        # bag_of_words_B=STORED()
                         )
         if not os.path.exists(index_word2vec_path):
             os.mkdir(index_word2vec_path)
@@ -162,10 +162,10 @@ def index_word2vec(data_path, index_data_sample_path):
                                                 setB=rdoc["indexdoc"],
                                                 sim=word2vec_sim, 
                                                 dis=1.0-word2vec_sim,
-                                                n_pairs=n_pairs,
-                                                pairs_scores=pairs_scores,
-                                                bag_of_words_A=doc["bag_of_words"],
-                                                bag_of_words_B=rdoc["bag_of_words"]
+                                                n_pairs=n_pairs #,
+                                                # pairs_scores=pairs_scores,
+                                                # bag_of_words_A=doc["bag_of_words"],
+                                                # bag_of_words_B=rdoc["bag_of_words"]
                                                 )
                 print("MxN: ", doc_i + 1, rdoc_i + 1, (doc_i + 1) * (rdoc_i + 1))
         print("Commiting ...")
@@ -173,6 +173,40 @@ def index_word2vec(data_path, index_data_sample_path):
         ix_word2vec = open_dir(index_word2vec_path)
         with ix_word2vec.reader() as reader:
             print("Indexed measures (word2vec): ", reader.doc_count())
+
+def reindex_matrix_word2vec_sim(data_path):
+    index_word2vec_path = data_path + INDEX_WORD2VEC
+    index_word2vec_full_path = data_path + INDEX_WORD2VEC + '-full'
+    if os.path.exists(index_word2vec_full_path):
+        if not os.path.exists(index_word2vec_path):
+            os.mkdir(index_word2vec_path)
+
+        schema = Schema(setA=ID(stored=True), setB=ID(stored=True),
+                        sim=NUMERIC(float, stored=True),
+                        dis=NUMERIC(float, stored=True),
+                        n_pairs=NUMERIC(int, stored=True),
+                        #pairs_scores=STORED(),
+                        #bag_of_words_A=STORED(),
+                        #bag_of_words_B=STORED()
+                        )
+
+        ix_word2vec_full = open_dir(index_word2vec_full_path)
+        ix_word2vec = create_in(index_word2vec_path, schema)
+        writer = ix_word2vec.writer(limitmb=1024)
+
+        with ix_word2vec_full.reader() as reader:
+            for doc_i, doc in reader.iter_docs():
+                writer.add_document(setA=doc["setA"], 
+                                        setB=doc["setB"],
+                                        sim=doc["sim"], 
+                                        dis=doc["dis"],
+                                        n_pairs=doc["n_pairs"]
+                                        #pairs_scores=doc["pairs_scores"],
+                                        #bag_of_words_A=doc["bag_of_words_A"],
+                                        #bag_of_words_B=doc["bag_of_words_B"]
+                                        )
+        print("Commiting ...")
+        writer.commit()
 
 def load_matrix_jaccard_sim(data_path):
     index_jaccard_path = data_path + INDEX_JACCARD
@@ -211,11 +245,48 @@ def load_matrix_word2vec_sim(data_path):
         with ix_word2vec.reader() as reader:
             ndocs = reader.doc_count()
             measures = {}
+            field_list = set()
             for doc_i, doc in reader.iter_docs():
                 measures.setdefault(doc['setA'], {})
                 measures[doc['setA']][doc['setB']] = doc['sim']
-            field_list = (list(set([a for a in reader.field_terms('setA')] + [b for b in reader.field_terms('setB')])))
+                field_list.add(doc['setA']) 
+                field_list.add(doc['setB']) 
+            field_list = list(field_list)
 
+            N = len(field_list)
+            dmatrix = dok_matrix((N, N), dtype=np.float32)
+            for i, f in enumerate(field_list):
+                j = i
+                while j < N:
+                    setA = field_list[i]
+                    setB = field_list[j]
+                    if setA in measures:
+                        if setB in measures[setA]:
+                            dmatrix[i,j] = measures[setA][setB]
+                            if i != j:
+                                dmatrix[j,i] = measures[setA][setB]
+                    j += 1
+            print(i+1,j, ndocs)
+            return dmatrix.asformat('csr')
+
+def load_matrix_word2vec_full_sim(data_path):
+    limit_example = 10
+    index_word2vec_path = data_path + INDEX_WORD2VEC + '-full'
+    if os.path.exists(index_word2vec_path):
+        print("Loading indexed word2vec ...")
+        ix_word2vec = open_dir(index_word2vec_path)
+        with ix_word2vec.reader() as reader:
+            ndocs = reader.doc_count()
+            measures = {}
+            field_list = set()
+            for doc_i, doc in reader.iter_docs():
+                measures.setdefault(doc['setA'], {})
+                measures[doc['setA']][doc['setB']] = doc['sim']
+                field_list.add(doc['setA']) 
+                field_list.add(doc['setB'])
+                if not doc_i < limit_example:
+                    break
+            field_list = list(field_list)[:limit_example]
             N = len(field_list)
             dmatrix = dok_matrix((N, N), dtype=np.float32)
             for i, f in enumerate(field_list):
