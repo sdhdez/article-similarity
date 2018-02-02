@@ -26,7 +26,6 @@ def get_document_ids(data_path):
                 field_list.add(doc['setA']) 
                 field_list.add(doc['setB']) 
         field_list = sorted(list(field_list))
-
         return field_list
 
 def get_measures(reader):
@@ -57,23 +56,36 @@ def get_matrix(measures, field_list):
 
 def load_matrix_jaccard_sim(data_path):
     index_jaccard_path = data_path + INDEX_JACCARD
+    index_jaccard_np_matrix_name = data_path + INDEX_JACCARD + "-np-matrix"
+    index_jaccard_np_matrix_file = data_path + INDEX_JACCARD + "-np-matrix.npy"
     if os.path.exists(index_jaccard_path):
-        print("Loading indexed jaccard ...")
-        ix_jaccard = open_dir(index_jaccard_path)
-        with ix_jaccard.reader() as reader:
-            measures = get_measures(reader)
-            field_list = get_document_ids(data_path)
-            print("Preparing to read ...")
-            return get_matrix(measures, field_list); 
+        if not os.path.exists(index_jaccard_np_matrix_file):
+            print("Loading indexed jaccard ...")
+            ix_jaccard = open_dir(index_jaccard_path)
+            with ix_jaccard.reader() as reader:
+                measures = get_measures(reader)
+                field_list = get_document_ids(data_path)
+                print("Loading matrix ...")
+                np_matrix = get_matrix(measures, field_list)
+                np.save(index_jaccard_np_matrix_name, np_matrix)
+                return np_matrix
+        else: 
+            return np.load(index_jaccard_np_matrix_file) 
 
 def load_matrix_word2vec_sim(data_path):
     index_word2vec_path = data_path + INDEX_WORD2VEC
+    index_word2vec_np_matrix_name = data_path + INDEX_WORD2VEC + '-np-matrix'
+    index_word2vec_np_matrix_file = data_path + INDEX_WORD2VEC + '-np-matrix.npy'
     if os.path.exists(index_word2vec_path):
-        print("Loading indexed word2vec ...")
-        ix_word2vec = open_dir(index_word2vec_path)
-        with ix_word2vec.reader() as reader:
-            measures = get_measures(reader)
-            field_list = get_document_ids(data_path)
-            print("Preparing to read ...", len(field_list))
-            return get_matrix(measures, field_list); 
-
+        if not os.path.exists(index_word2vec_np_matrix_file):
+            print("Loading indexed word2vec ...")
+            ix_word2vec = open_dir(index_word2vec_path)
+            with ix_word2vec.reader() as reader:
+                measures = get_measures(reader)
+                field_list = get_document_ids(data_path)
+                print("Loading matrix ...")
+                np_matrix = get_matrix(measures, field_list)
+                np.save(index_word2vec_np_matrix_name, np_matrix)
+                return np_matrix
+        else: 
+            return np.load(index_word2vec_np_matrix_file) 

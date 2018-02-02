@@ -10,4 +10,5 @@ if __name__ == "__main__":
     print(csr_matrix_jaccard)
     print("Loading word2vec ...")
     csr_matrix_word2vec = mload.load_matrix_word2vec_sim(data_path)
+    print(csr_matrix_jaccard)
 
