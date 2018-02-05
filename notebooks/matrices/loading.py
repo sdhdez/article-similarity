@@ -69,7 +69,7 @@ def load_matrix_jaccard_sim(data_path):
                 print("Loading matrix ...")
                 np_matrix = get_matrix(measures, field_list)
                 np.save(index_jaccard_np_matrix_name, np_matrix.todense())
-                return np_matrix.todense()
+                return np.load(index_jaccard_np_matrix_file)
         else: 
             print("Loading saved matrix ...")
             return np.load(index_jaccard_np_matrix_file) 
@@ -88,7 +88,7 @@ def load_matrix_word2vec_sim(data_path):
                 print("Loading matrix ...")
                 np_matrix = get_matrix(measures, field_list)
                 np.save(index_word2vec_np_matrix_name, np_matrix.todense())
-                return np_matrix.todense()
+                return np.load(index_word2vec_np_matrix_file) 
         else: 
             print("Loading saved matrix ...")
             return np.load(index_word2vec_np_matrix_file) 
