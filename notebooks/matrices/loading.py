@@ -1,4 +1,5 @@
 import os.path
+import pickle
 import numpy as np
 from scipy.sparse import dok_matrix
 from whoosh.index import open_dir, create_in
@@ -12,22 +13,29 @@ from matrices.indexing import INDEX_DATA, INDEX_DATA_SAMPLE, INDEX_JACCARD, INDE
 def get_document_ids(data_path):
     index_jaccard_path = data_path + INDEX_JACCARD
     index_word2vec_path = data_path + INDEX_WORD2VEC
-    if os.path.exists(index_jaccard_path) and os.path.exists(index_word2vec_path):
-        ix_jaccard = open_dir(index_jaccard_path)
-        ix_word2vec = open_dir(index_word2vec_path)
+    indexdocs_path = data_path + "-indexdocs.csv"
+    if not os.path.exists(indexdocs_path):
+        if os.path.exists(index_jaccard_path) and os.path.exists(index_word2vec_path):
+            ix_jaccard = open_dir(index_jaccard_path)
+            ix_word2vec = open_dir(index_word2vec_path)
 
-        field_list = set()
-        with ix_jaccard.reader() as reader:
-            for doc_i, doc in reader.iter_docs():
-                field_list.add(doc['setA']) 
-                field_list.add(doc['setB']) 
-        with ix_word2vec.reader() as reader:
-            for doc_i, doc in reader.iter_docs():
-                field_list.add(doc['setA']) 
-                field_list.add(doc['setB']) 
-        field_list = sorted(list(field_list))
-        return field_list
-
+            field_list = set()
+            with ix_jaccard.reader() as reader:
+                for doc_i, doc in reader.iter_docs():
+                    field_list.add(doc['setA']) 
+                    field_list.add(doc['setB']) 
+            with ix_word2vec.reader() as reader:
+                for doc_i, doc in reader.iter_docs():
+                    field_list.add(doc['setA']) 
+                    field_list.add(doc['setB']) 
+            field_list = sorted(list(field_list))
+            with open(indexdocs_path, "wb") as fp:
+                pickle.dump(field_list, fp)
+            return field_list
+    else: 
+        with open(indexdocs_path, "rb") as fp:
+            field_list = pickle.load(fp)
+        
 def get_measures(reader):
     measures = {}
     for doc_i, doc in reader.iter_docs():
