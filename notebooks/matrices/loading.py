@@ -13,7 +13,7 @@ from matrices.indexing import INDEX_DATA, INDEX_DATA_SAMPLE, INDEX_JACCARD, INDE
 def get_document_ids(data_path):
     index_jaccard_path = data_path + INDEX_JACCARD
     index_word2vec_path = data_path + INDEX_WORD2VEC
-    indexdocs_path = data_path + "-indexdocs.csv"
+    indexdocs_path = data_path + "/indexdocs.csv"
     if not os.path.exists(indexdocs_path):
         if os.path.exists(index_jaccard_path) and os.path.exists(index_word2vec_path):
             ix_jaccard = open_dir(index_jaccard_path)
@@ -35,6 +35,7 @@ def get_document_ids(data_path):
     else: 
         with open(indexdocs_path, "rb") as fp:
             field_list = pickle.load(fp)
+            return field_list
         
 def get_measures(reader):
     measures = {}
