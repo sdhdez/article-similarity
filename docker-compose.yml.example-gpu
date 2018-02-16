@@ -1,7 +1,7 @@
 version: '3'
 services:
   tf-extras:
-    image: sdavidhdez/docker-tensorflow-py3-extras:latest
+    image: sdavidhdez/docker-tensorflow-py3-extras:1.5.0-gpu-py3
     restart: always
     container_name: 'tf-extras'
     ports:
@@ -9,6 +9,7 @@ services:
     volumes:
       - './notebooks:/notebooks'
       - './nltk_data:/root/nltk_data'
+      - 'test-gpu.py:/notebooks/test-gpu.py'
       - './volumes/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py'
     # environment:
     #  - VIRTUAL_HOST=jlab.totum.one
