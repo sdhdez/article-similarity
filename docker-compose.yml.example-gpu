@@ -7,10 +7,10 @@ services:
     ports:
       - '8888:8888'
     volumes:
-      - './notebooks:/notebooks'
-      - './nltk_data:/root/nltk_data'
-      - 'test-gpu.py:/notebooks/test-gpu.py'
-      - './volumes/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py'
+      - '/home/snov/Projects/univ-paris13/nlp/code/context-in-articles/notebooks:/notebooks/notebooks'
+      - '/home/snov/nltk_data:/root/nltk_data'
+      - '/home/snov/Projects/univ-paris13/nlp/code/context-in-articles/volumes/test-gpu.py:/notebooks/test-gpu.py'
+    #  - './volumes/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py'
     # environment:
     #  - VIRTUAL_HOST=jlab.totum.one
     #  - VIRTUAL_PORT=8888
