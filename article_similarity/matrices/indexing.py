@@ -29,13 +29,14 @@ def index_sample(data_path, nrand=100, doc_limit=10):
                         cardinality=NUMERIC(int, 32, signed=False, stored=True),
                         bag_of_words=KEYWORD(stored=True, scorable=True)
                         )
-        if not os.path.exists(index_data_sample_path):
-            os.mkdir(index_data_sample_path)
-        ix_data_sample = create_in(index_data_sample_path, schema)
 
         with ix_data.reader() as reader:
+            fixed_seed = reader.doc_count() # Fixed seed
+            if not os.path.exists(index_data_sample_path):
+                os.mkdir(index_data_sample_path)
+            ix_data_sample = create_in(index_data_sample_path, schema)
+           
             with ix_data.searcher() as searcher:
-                fixed_seed = reader.doc_count() # Fixed seed
                 roulette_threshold = (1.2*nrand)/fixed_seed # Ensure getting at least n-samples
                 random.seed(fixed_seed)
                 print("Indexed documents: ", fixed_seed, roulette_threshold)
