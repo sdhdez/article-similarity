@@ -21,12 +21,14 @@ EXT_AMINER_TXT = ".txt"
 analizer = RegexTokenizer() | LowercaseFilter() | StopFilter()
 
 def get_default_sample_init():
+    """Return deault values"""
     nrand = 100
     doc_limit = 10 
     fixed_seed = 0
     return nrand, doc_limit, fixed_seed
 
 def get_default_sample_path(data_path):
+    """Return path to sample with default parameters as sufix"""
     nrand, doc_limit, fixed_seed = get_default_sample_init()
     sufix_path = "-" + str(nrand) + "-" + str(doc_limit) + "-" + str(fixed_seed) + ".bin"
     index_data_sample_path = data_path + INDEX_DATA_SAMPLE + sufix_path
@@ -120,7 +122,7 @@ def index_aminer_txt_in(documents_path):
         writer.commit()
     else:
         print("This index already exists: %s. \
-                \nMove or delete the path if you want to index again." % (whoosh_index), file=sys.stderr)
+                \n - Move or delete the path if you want to index again." % (whoosh_index), file=sys.stderr)
 
 def save_sample_aminer_related(data_path):
     """Receive path to resource and save a list of related documents by words"""
@@ -128,7 +130,6 @@ def save_sample_aminer_related(data_path):
     nrand, doc_limit, fixed_seed = get_default_sample_init()
     index_data_path = data_path + INDEX_DATA
     index_data_sample_path = get_default_sample_path(data_path)
-    
     # If index exists 
     if os.path.exists(index_data_path) and not os.path.exists(index_data_sample_path):
         print("Opening indexed data ...", file=sys.stderr)
@@ -140,7 +141,7 @@ def save_sample_aminer_related(data_path):
         with ix_data.reader() as reader:
             with ix_data.searcher() as searcher:
                 # Threshold to get nrand random documents 
-                roulette_threshold = (1.2*nrand)/reader.doc_count()
+                roulette_threshold = (1.25*nrand)/reader.doc_count()
                 # Init pseudo-random generator
                 random.seed(fixed_seed)
                 print("Seed: %d, \
@@ -151,11 +152,11 @@ def save_sample_aminer_related(data_path):
                                                     nrand, 
                                                     doc_limit), file=sys.stderr)
                 # Content hash 
-                docs_hashes = {}
+                docs_by_hashes = {}
                 # Iter documents
                 for docid in reader.all_doc_ids():
                     # Stop condition 
-                    if len(docs_hashes) >= nrand*doc_limit:
+                    if len(docs_by_hashes) >= nrand*doc_limit:
                         break 
                     # If random number is greater than threshold then document is not selected 
                     if random.random() > roulette_threshold:
@@ -169,12 +170,59 @@ def save_sample_aminer_related(data_path):
                     # Query documents related with the title 
                     result = searcher.search(q, limit=doc_limit)
                     for r in result:
-                        docs_hashes[r['bag_of_words_hash']] = r['indexdoc']
-                
+                        docs_by_hashes[r['bag_of_words_hash']] = r['indexdoc']
+                # Dump document ids from sample 
                 with open(index_data_sample_path, "wb") as fp:
-                    pickle.dump(list(docs_hashes.values()), fp)
-                    print("Sample size: ", len(docs_hashes), file=sys.stderr)
+                    pickle.dump(list(docs_by_hashes.values()), fp)
+                    print("Sample size: ", len(docs_by_hashes), file=sys.stderr)
                     fp.close()
     else:
-        print("Check if %s exists (index) \nor remove %s (sample)." % (index_data_path, index_data_sample_path), file=sys.stderr)
+        # Nothing is done.
+        print("If you want to resample, first check if index exists or remove sample file. \
+                \n - Index: %s \n - Sample: %s" % (index_data_path, index_data_sample_path), file=sys.stderr)
 
+def get_docids_sample_aminer_related(data_path):
+    """Return docs ids from sample of related documents"""
+    # Get sample default path
+    index_data_sample_path = get_default_sample_path(data_path)
+    # Open file if exists 
+    with open(index_data_sample_path, "rb") as fp:
+        docs_ids = pickle.load(fp)
+        print("Sample size: %d " % len(docs_ids), file=sys.stderr)
+        print(" - Content from %s " % (index_data_sample_path), file=sys.stderr)
+        fp.close()
+        return docs_ids
+
+def get_sample_aminer_related(data_path):
+    """Receive path to index and return a list with docs ids and 
+    dictionary with documents from the sample"""
+    index_data_path = data_path + INDEX_DATA
+    # If index exists 
+    if os.path.exists(index_data_path):
+        # Open index
+        ix_data = open_dir(index_data_path)
+        # Field to query
+        parser = QueryParser("indexdoc", ix_data.schema)
+        # Search for each doc id 
+        with ix_data.searcher() as searcher:
+            # Load doc ids from sample
+            docs_ids = get_docids_sample_aminer_related(data_path)
+            # Load documents to memory 
+            docs = {}
+            for docid in docs_ids:
+                # Query doc id 
+                q = parser.parse(docid)
+                # Find and get the first result
+                doc = searcher.search(q)[0]
+                # Get bag of words from content
+                bag_of_words = set([t.text for t in analizer(doc['content'])])
+                # Save doc values in dict
+                docs.setdefault(docid, {'bag_of_words': set(), 'cardinality': 0})
+                docs[docid]['bag_of_words'] = bag_of_words
+                docs[docid]['cardinality'] = doc['cardinality']
+            # Get number of loaded documents
+            print("%d documents loaded" % len(docs), file=sys.stderr)
+            return docs_ids, docs
+    else:
+        print("0 documents loaded \
+                \n - Index doesn't exists", file=sys.stderr)

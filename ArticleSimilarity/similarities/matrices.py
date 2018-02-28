@@ -1,66 +1,85 @@
-import os.path
-import numpy as np
-import random
+import sys, os.path
 import itertools
-from scipy.sparse import dok_matrix
-from whoosh.index import open_dir, create_in
-from whoosh.fields import Schema, TEXT, ID, KEYWORD, NUMERIC, STORED
-from whoosh import qparser
-from whoosh.qparser import QueryParser
-from whoosh.query import Term, And
+import numpy as np
 import gensim
 
-# Import default paths to indexed data
+from resources import dataset as rd 
 
-def index_jaccard(data_path, index_data_sample_path):
-    index_jaccard_path = data_path + INDEX_JACCARD
+def measures_sample_aminer_related(data_path):
+    """Receive a path to an index and save jaccard and word2vec similarities"""
+    index_data_path = data_path + rd.INDEX_DATA
+    if os.path.exists(index_data_path):
+        print("Loading model for word2vec ...")
+        word_vectors = gensim.models.KeyedVectors.load_word2vec_format(
+                                            './resources/GoogleNews-vectors-negative300.bin', 
+                                            binary=True
+                                        )
+        print("Generating measures ...", file=sys.stderr)
+        # Load docs and ids in memory 
+        docs_ids, docs = rd.get_sample_aminer_related(data_path)
+        docs_ids = docs_ids[:2]
+        # Get number of documents
+        N = len(docs_ids)
+        # Save document similarities  
+        measures = {}
+        # Save word2vec similarities 
+        word2vec_similarities = {}
+        # Iter over docment ids (triangular matrix)
+        for d_i, doc_id in enumerate(docs_ids):
+            # Row document
+            doc_i = docs[doc_id]
+            # j = i to avoid repetition 
+            d_j = d_i
+            # Columns 
+            while d_j < N:
+                # Col document
+                doc_j = docs[docs_ids[d_j]]
+                # Unique id for pair of documents 
+                measure_id = doc_id + docs_ids[d_j]
+                # Initialize dictionary with the id
+                measures.setdefault(measure_id, {'word2vec': 0.0, 'jaccard': 0.0})
+                # Get jaccard similarity
+                measures[measure_id]['jaccard'] = get_jaccard_sim(doc_i, doc_j)
+                # Get word2vec similarity
+                measures[measure_id]['word2vec'] = get_word2vec_sim(doc_i, doc_j, word_vectors, word2vec_similarities)
+                # Change column 
+                d_j += 1
+        print(word2vec_similarities, len(word2vec_similarities))
+        print(len(measures), N*(N+1)//2)
+    else:
+        print("Index doesn't exists", file=sys.stderr)
 
-    if os.path.exists(index_data_sample_path):
-        print("Opening sample data ...")
-        ix_data_sample = open_dir(index_data_sample_path)
+def get_jaccard_sim(A, B):
+    cA = A['cardinality']
+    cB = B['cardinality']
+    setA = A['bag_of_words']
+    setB = B['bag_of_words']
+    cAB = len(setA & setB)
+    jaccard_sim = np.divide(cAB, (cA + cB - cAB))
+    return jaccard_sim
 
-        schema = Schema(setA=ID(stored=True), setB=ID(stored=True),
-                        cA=NUMERIC(int, 32, signed=False, stored=True),
-                        cB=NUMERIC(int, 32, signed=False, stored=True),
-                        cAB=NUMERIC(int, 32, signed=False, stored=True),
-                        sim=NUMERIC(float, stored=True),
-                        dis=NUMERIC(float, stored=True),
-                        bag_of_words_A=STORED(),
-                        bag_of_words_B=STORED()
-                        )
-        if not os.path.exists(index_jaccard_path):
-            os.mkdir(index_jaccard_path)
-        ix_jaccard = create_in(index_jaccard_path, schema)
-        writer = ix_jaccard.writer(limitmb=2048)
-
-        with ix_data_sample.reader() as rows:
-            print("Indexed samples: ", rows.doc_count())
-            with ix_data_sample.reader() as cols:
-                for doc_i, doc in rows.iter_docs():
-                    setA = set(doc['bag_of_words'].split())
-                    cA = doc['cardinality']
-                    for rdoc_i, rdoc in cols.iter_docs():
-                        print(". ", doc["indexdoc"], rdoc["indexdoc"])
-                        setB = set(rdoc['bag_of_words'].split())
-                        cB = rdoc['cardinality']
-                        cAB = float(len(setA & setB))
-                        if cAB > 0.0:
-                            jaccard_sim = cAB/(cA + cB - cAB)
-                            writer.add_document(setA=doc["indexdoc"], 
-                                            setB=rdoc["indexdoc"],
-                                            cA=cA, 
-                                            cB=cB, 
-                                            cAB=cAB, 
-                                            sim=jaccard_sim, 
-                                            dis=1.0-jaccard_sim,
-                                            bag_of_words_A=doc["bag_of_words"],
-                                            bag_of_words_B=rdoc["bag_of_words"]
-                                            )
-                    print("MxN: ", doc_i, rdoc_i, doc_i * rdoc_i)
-        writer.commit()
-        ix_jaccard = open_dir(index_jaccard_path)
-        with ix_jaccard.reader() as reader:
-            print("Indexed measures: ", reader.doc_count())
+def get_word2vec_sim(A, B, word_vectors, word2vec_similarities):
+    setA = A['bag_of_words']
+    setB = B['bag_of_words']
+    pairs = []
+    mean_sim = 0.0
+    sim_sum = 0.0
+    n_pairs = 0.0
+    for pair in itertools.product(setA,setB):
+        try:
+            pair = sorted(pair)
+            pair_id = ",".join(pair)
+            if pair_id in word2vec_similarities:
+                sim += word2vec_similarities[pair_id]
+            else:
+                sim = word_vectors.similarity(pair[0], pair[1])
+                word2vec_similarities[pair_id] = sim
+        except KeyError as e:
+            sim = 0.0
+        sim_sum += sim
+        n_pairs += 1
+        mean_sim = np.divide(sim_sum, n_pairs)
+    return mean_sim
 
 def index_word2vec(data_path, index_data_sample_path):
     model = gensim.models.KeyedVectors.load_word2vec_format('./resources/GoogleNews-vectors-negative300.bin', binary=True)
