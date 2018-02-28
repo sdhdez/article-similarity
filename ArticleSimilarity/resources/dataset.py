@@ -1,18 +1,36 @@
 import sys, os.path
 import hashlib
+import random
+import pickle
 # Whoosh 
-from whoosh.index import create_in
+from whoosh.index import create_in, open_dir 
 from whoosh.fields import Schema, ID, KEYWORD, STORED
 from whoosh.analysis import StemmingAnalyzer, RegexTokenizer, LowercaseFilter, StopFilter
+from whoosh import qparser
+from whoosh.qparser import QueryParser
 # from whoosh.writing import BufferedWriter
 
-# Import default paths to indexed data
-from .indexing import INDEX_DATA
+INDEX_DATA = "/index-data"
+INDEX_DATA_SAMPLE = "/index-data-sample"
+INDEX_JACCARD = "/index-jaccard"
+INDEX_WORD2VEC = "/index-word2vec"
 
 # Default extension for aminer files in txt
 EXT_AMINER_TXT = ".txt"
 # Tokenizer from Whoosh 
 analizer = RegexTokenizer() | LowercaseFilter() | StopFilter()
+
+def get_default_sample_init():
+    nrand = 100
+    doc_limit = 10 
+    fixed_seed = 0
+    return nrand, doc_limit, fixed_seed
+
+def get_default_sample_path(data_path):
+    nrand, doc_limit, fixed_seed = get_default_sample_init()
+    sufix_path = "-" + str(nrand) + "-" + str(doc_limit) + "-" + str(fixed_seed) + ".bin"
+    index_data_sample_path = data_path + INDEX_DATA_SAMPLE + sufix_path
+    return index_data_sample_path
 
 def get_filenames(path_resources, ext=EXT_AMINER_TXT):
     """Receive a path to resources and yield a list of paths to files with extension 'ext'"""
@@ -80,9 +98,9 @@ def index_aminer_txt_in(documents_path):
             i = 1 
             # For each document in the file 
             for indexdoc, title, text in get_aminer_txt(pfilename):
-                # Get string with set of words in lowercase from the title and the content of the document
+                # Get string with a subset of words in lowercase from the title and the content of the document
                 tokens = " ".join(set([t.text for t in analizer(text)]))
-                # Get string with set of words from title 
+                # Get string with a subset of words from title 
                 tokens_title = " ".join(set([t.text for t in analizer(title)]))
                 # Get number of words 
                 cardinality = tokens.count(" ") + 1
@@ -103,3 +121,60 @@ def index_aminer_txt_in(documents_path):
     else:
         print("This index already exists: %s. \
                 \nMove or delete the path if you want to index again." % (whoosh_index), file=sys.stderr)
+
+def save_sample_aminer_related(data_path):
+    """Receive path to resource and save a list of related documents by words"""
+    # Init variables and paths
+    nrand, doc_limit, fixed_seed = get_default_sample_init()
+    index_data_path = data_path + INDEX_DATA
+    index_data_sample_path = get_default_sample_path(data_path)
+    
+    # If index exists 
+    if os.path.exists(index_data_path) and not os.path.exists(index_data_sample_path):
+        print("Opening indexed data ...", file=sys.stderr)
+        # Open index
+        ix_data = open_dir(index_data_path)
+        # Parser for queries grouping query terms with OR
+        parser = QueryParser("bag_of_words", ix_data.schema, group=qparser.OrGroup)
+        # Create reader for all documents
+        with ix_data.reader() as reader:
+            with ix_data.searcher() as searcher:
+                # Threshold to get nrand random documents 
+                roulette_threshold = (1.2*nrand)/reader.doc_count()
+                # Init pseudo-random generator
+                random.seed(fixed_seed)
+                print("Seed: %d, \
+                        \nThreshold: %f, \
+                        \nRandom docs: %d, \
+                        \nRelated docs per doc: %d" % (fixed_seed, 
+                                                    roulette_threshold, 
+                                                    nrand, 
+                                                    doc_limit), file=sys.stderr)
+                # Content hash 
+                docs_hashes = {}
+                # Iter documents
+                for docid in reader.all_doc_ids():
+                    # Stop condition 
+                    if len(docs_hashes) >= nrand*doc_limit:
+                        break 
+                    # If random number is greater than threshold then document is not selected 
+                    if random.random() > roulette_threshold:
+                        continue
+                    # Get stored fields from document
+                    doc = reader.stored_fields(docid)
+                    # Get string with a subset of words
+                    doc_title = " ".join([w.text for w in analizer(doc['title'])])
+                    # Parse query with the subset of words in the title
+                    q = parser.parse(doc_title)
+                    # Query documents related with the title 
+                    result = searcher.search(q, limit=doc_limit)
+                    for r in result:
+                        docs_hashes[r['bag_of_words_hash']] = r['indexdoc']
+                
+                with open(index_data_sample_path, "wb") as fp:
+                    pickle.dump(list(docs_hashes.values()), fp)
+                    print("Sample size: ", len(docs_hashes), file=sys.stderr)
+                    fp.close()
+    else:
+        print("Check if %s exists (index) \nor remove %s (sample)." % (index_data_path, index_data_sample_path), file=sys.stderr)
+

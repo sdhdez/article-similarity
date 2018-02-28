@@ -10,61 +10,7 @@ from whoosh.qparser import QueryParser
 from whoosh.query import Term, And
 import gensim
 
-INDEX_DATA = "/index-data"
-INDEX_DATA_SAMPLE = "/index-data-sample"
-INDEX_JACCARD = "/index-jaccard"
-INDEX_WORD2VEC = "/index-word2vec"
-
-def index_sample(data_path, nrand=100, doc_limit=10):
-    sufix_file = "-" + str(nrand) + "-" + str(doc_limit)
-    index_data_path = data_path + INDEX_DATA
-    index_data_sample_path = data_path + INDEX_DATA_SAMPLE + sufix_file
-
-    if os.path.exists(index_data_path):
-        print("Opening data ...")
-        ix_data = open_dir(index_data_path)
-        parser = QueryParser("bag_of_words", ix_data.schema, group=qparser.OrGroup)
-
-        schema = Schema(indexdoc=ID(unique=True, stored=True),
-                        cardinality=NUMERIC(int, 32, signed=False, stored=True),
-                        bag_of_words=KEYWORD(stored=True, scorable=True)
-                        )
-
-        with ix_data.reader() as reader:
-            fixed_seed = reader.doc_count() # Fixed seed
-            if not os.path.exists(index_data_sample_path):
-                os.mkdir(index_data_sample_path)
-            ix_data_sample = create_in(index_data_sample_path, schema)
-           
-            with ix_data.searcher() as searcher:
-                roulette_threshold = (1.2*nrand)/fixed_seed # Ensure getting at least n-samples
-                random.seed(fixed_seed)
-                print("Indexed documents: ", fixed_seed, roulette_threshold)
-                i, docdict = 0, {} 
-                for doc_i, doc in reader.iter_docs():
-                    if i >= nrand:
-                        break 
-                    if random.random() > roulette_threshold:
-                        continue
-                    q = parser.parse(doc['bag_of_words_title'])
-                    result = searcher.search(q, limit = doc_limit)
-                    print(". ", doc["indexdoc"], len(result))
-
-                    for rdoc in result:
-                        print(".. ", rdoc["indexdoc"], rdoc.score)
-                        writer = ix_data_sample.writer()
-                        writer.update_document(indexdoc=rdoc["indexdoc"],
-                                            cardinality=rdoc['cardinality'], 
-                                            bag_of_words=rdoc["bag_of_words"]
-                                            )
-                        writer.commit()
-                        docdict[rdoc["indexdoc"]] = 1
-                    i += 1
-                print("Random documents: ", i)
-                print("Sample size (dict): ", len(docdict))
-        ix_data_sample = open_dir(index_data_sample_path)
-        with ix_data_sample.reader() as reader:
-            print("Sample size (index): ", reader.doc_count())
+# Import default paths to indexed data
 
 def index_jaccard(data_path, index_data_sample_path):
     index_jaccard_path = data_path + INDEX_JACCARD
