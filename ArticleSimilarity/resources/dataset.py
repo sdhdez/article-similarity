@@ -225,7 +225,7 @@ def get_sample_aminer_related(data_path):
                 docs[docid]['bag_of_words'] = bag_of_words
                 docs[docid]['cardinality'] = doc['cardinality']
             # Get number of loaded documents
-            print("%d documents loaded" % len(docs), file=sys.stderr)
+            print(" - %d documents loaded" % len(docs), file=sys.stderr)
             return docs_ids, docs
     else:
         print("0 documents loaded \
