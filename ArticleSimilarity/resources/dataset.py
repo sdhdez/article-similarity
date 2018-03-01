@@ -27,11 +27,15 @@ def get_default_sample_init():
     fixed_seed = 0
     return nrand, doc_limit, fixed_seed
 
+def get_default_suffix():
+    nrand, doc_limit, fixed_seed = get_default_sample_init()
+    suffix_path = "-" + str(nrand) + "-" + str(doc_limit) + "-" + str(fixed_seed) 
+    return suffix_path
+
 def get_default_sample_path(data_path):
     """Return path to sample with default parameters as sufix"""
-    nrand, doc_limit, fixed_seed = get_default_sample_init()
-    sufix_path = "-" + str(nrand) + "-" + str(doc_limit) + "-" + str(fixed_seed) + ".bin"
-    index_data_sample_path = data_path + INDEX_DATA_SAMPLE + sufix_path
+    suffix_path = get_default_suffix() + ".bin"
+    index_data_sample_path = data_path + INDEX_DATA_SAMPLE + suffix_path
     return index_data_sample_path
 
 def get_filenames(path_resources, ext=EXT_AMINER_TXT):
