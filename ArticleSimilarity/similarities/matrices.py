@@ -10,17 +10,19 @@ DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
 WORD2VEC_MEASURED_SIMILARITIES_CACHE = './resources/word2vec-measured-similarities-cache.bin'
 MEASURES_PATH = '/measures'
 
-def measures_sample_aminer_related(data_path):
+def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
     """Receive a path to resources and save jaccard and word2vec similarities"""
     index_data_path = data_path + rd.INDEX_DATA
     if os.path.exists(index_data_path):
-        # Load docs and ids in memory 
-        docs_ids, docs = rd.get_sample_aminer_related(data_path)
         # Get number of documents
         N = len(docs_ids)
-        # Save document similarities  
-        measures = load_measures(data_path)
+        # Load measures if file exists 
+        measures = load_measures(measures_path)
+        # If the expected number of measures doesn't match then 
+        # calculate the measures
         if len(measures) != N*(N+1)//2:
+            # Clear previous measures 
+            measures = {}
             print("Loading model for word2vec ...")
             word_vectors = gensim.models.KeyedVectors.load_word2vec_format(
                                             DEAULT_WORDVECTORS, 
@@ -49,12 +51,34 @@ def measures_sample_aminer_related(data_path):
                     measures[measure_id]['word2vec'] = get_word2vec_sim(doc_i, doc_j, word_vectors, word2vec_similarities)
                     # Change column 
                     d_j += 1
+            # Free memory
+            del word_vectors
+            # Save measures 
+            save_measures(data_path, measures_path, measures)
             # Save measured word2vec similarities
             save_wordvector_similarities(word2vec_similarities)
-            # Save measures 
-            save_measures(data_path, measures)
     else:
         print("Index doesn't exists", file=sys.stderr)
+
+def measures_sample_aminer_related(data_path):
+    """Receive a path to resources and save jaccard and word2vec similarities"""
+    # Get suffix for current sample parameters
+    suffix_path = rd.get_default_suffix(extra_suffix="-related")
+    # Form measures path 
+    measures_path = data_path + MEASURES_PATH + suffix_path + ".bin"
+    # Load docs and ids in memory 
+    docs_ids, docs = rd.get_sample_aminer_related(data_path)
+    measures_sample_aminer(data_path, measures_path, docs_ids, docs)
+
+def measures_sample_aminer_random(data_path):
+    """Receive a path to resources and save jaccard and word2vec similarities"""
+    # Get suffix for current sample parameters
+    suffix_path = rd.get_default_suffix()
+    # Form measures path 
+    measures_path = data_path + MEASURES_PATH + suffix_path + ".bin"
+    # Load docs and ids in memory 
+    docs_ids, docs = rd.get_sample_aminer_random(data_path)
+    measures_sample_aminer(data_path, measures_path, docs_ids, docs)
 
 def get_jaccard_sim(A, B):
     """Receive info for two documents and return jaccard similarity"""
@@ -135,12 +159,8 @@ def save_wordvector_similarities(word2vec_similarities):
         fp.close()
         return True
 
-def save_measures(data_path, measures):
+def save_measures(data_path, measures_path, measures):
     """Receive a path resource and a dictionary with pre-computed measures"""
-    # Get suffix for current sample parameters
-    suffix_path = rd.get_default_suffix()
-    # Form measures path 
-    measures_path = data_path + MEASURES_PATH + suffix_path + ".bin"
     # Open file to save measures
     with open(measures_path, "wb") as fp:
         print("Saving %d measures to file ...\
@@ -150,12 +170,8 @@ def save_measures(data_path, measures):
         fp.close()
         return True
 
-def load_measures(data_path):
+def load_measures(measures_path):
     """Receive path to resource and load saved measures"""
-    # Get suffix for current sample parameters
-    suffix_path = rd.get_default_suffix()
-    # Form measures path 
-    measures_path = data_path + MEASURES_PATH + suffix_path + ".bin"
     if os.path.exists(measures_path):
         with open(measures_path, "rb") as fp:
             print("Loading measures from file ...", file=sys.stderr)
@@ -166,4 +182,3 @@ def load_measures(data_path):
             return measures
     else:
         return {}
-
