@@ -12,6 +12,7 @@ from whoosh.qparser import QueryParser
 
 DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
 WORD2VEC_MEASURED_SIMILARITIES_CACHE = './resources/word2vec-measured-similarities-cache'
+WORD2VEC_MEASURED_SIMILARITIES_PICKLE = '/measure-%s.pkl'
 MEASURES_PATH = '/measures'
 
 def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
@@ -19,21 +20,19 @@ def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
     index_data_path = data_path + rd.INDEX_DATA
     if os.path.exists(index_data_path):
         # Get number of documents
-        docs_ids = docs_ids[:1]
         N = len(docs_ids)
         # Load measures if file exists 
         measures = load_measures(measures_path)
         # If the expected number of measures doesn't match then 
         # calculate the measures
-        if len(measures) != N*(N+1)//2:
+        expected_measures = N*(N+1)//2
+        if len(measures) != expected_measures:
             # Clear previous measures 
             measures = {}
-            print(" - Wrong measures ...", file=sys.stderr)
+            print(" - Wrong measures, %s expected" % expected_measures, file=sys.stderr)
             # Load previous word2vec similarities 
-            ix_data = load_index_wordvector_similarities()
-            ix_word2vec_similarities_searcher, parser = load_searcher_wordvector_similarities(ix_data)
-            ix_word2vec_similarities_writer = load_writer_wordvector_similarities(ix_data)
-            print(" - Loading word2vec model ...")
+            sim_measures = load_dict_wordvector_similarities()
+            print("Loading word2vec model ...")
             word_vectors = gensim.models.KeyedVectors.load_word2vec_format(
                                             DEAULT_WORDVECTORS, 
                                             binary=True)
@@ -56,19 +55,18 @@ def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
                     # Get word2vec similarity
                     measures[measure_id]['word2vec'] = get_word2vec_sim(doc_i, doc_j, 
                                                                         word_vectors, 
-                                                                        ix_word2vec_similarities_searcher, parser,
-                                                                        ix_word2vec_similarities_writer)
+                                                                        sim_measures)
                     # Change column 
                     d_j += 1
                     if d_j % 50000 == 0:
                         print(" - Document pair: %d" % d_j, file=sys.stderr)
             # Free memory
-            print(" - Unloading word2vec model ...", file=sys.stderr)
+            print("Unloading word2vec model ...", file=sys.stderr)
             del word_vectors
             # Save measures 
             save_measures(data_path, measures_path, measures)
             # Save measured word2vec similarities
-            ix_word2vec_similarities_writer.commit()
+            save_dict_wordvector_similarities(sim_measures)
     else:
         print("Index doesn't exists", file=sys.stderr)
 
@@ -106,7 +104,7 @@ def get_jaccard_sim(A, B):
     jaccard_sim = np.divide(cAB, (cA + cB - cAB))
     return jaccard_sim
 
-def get_word2vec_sim(A, B, word_vectors, ix_word2vec_similarities_searcher, parser, ix_word2vec_similarities_writer):
+def get_word2vec_sim(A, B, word_vectors, sim_measures):
     """Receive info for two documents, the word2vec model and a dictionary of precalculated similarities, 
     Return word2vec similarity and save the similarity in the dctionary"""
     # Document's info
@@ -127,11 +125,11 @@ def get_word2vec_sim(A, B, word_vectors, ix_word2vec_similarities_searcher, pars
                 # Generate unique id (string)
                 pair_id = ",".join(pair)
                 # If pair exists in previous measures retrive the saved measure
-                sim = get_wordvector_similarity(pair_id, ix_word2vec_similarities_searcher, parser)
-                if sim == None:
+                if pair_id in sim_measures:
+                    sim = sim_measures[pair_id]
+                else:
                     sim = word_vectors.similarity(pair[0], pair[1])
-                    print(pair_id, sim)
-                    save_wordvector_similarity(pair_id, sim, ix_word2vec_similarities_writer)
+                    sim_measures[pair_id] = sim 
         except KeyError as e:
             # If fails similarity is 0.0
             sim = 0.0
@@ -144,37 +142,51 @@ def get_word2vec_sim(A, B, word_vectors, ix_word2vec_similarities_searcher, pars
     # Return similarity
     return mean_sim
 
-def load_index_wordvector_similarities():
+def load_dict_wordvector_similarities():
     if os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
-        print("Opening indexed similarity measures ...", file=sys.stderr)
-        # Open index
-        ix_data = open_dir(WORD2VEC_MEASURED_SIMILARITIES_CACHE) 
-        return ix_data
+        print("Opening cached similarity measures ...", file=sys.stderr)
+        p = 0
+        sim_measures = {}
+        el_sum = 0
+        while True:
+            path_measure = WORD2VEC_MEASURED_SIMILARITIES_CACHE + WORD2VEC_MEASURED_SIMILARITIES_PICKLE % p
+            if os.path.exists(path_measure):
+                with open(path_measure, "rb") as fin:
+                    tmp = pickle.load(fin)
+                    fin.close()
+                    el_sum += len(tmp)
+                    sim_measures.update(tmp)
+                    del tmp
+                p+=1
+            else:
+                break
+        print(" - Loaded measures %s = %s" % (el_sum, len(sim_measures)), file=sys.stderr)
+        return sim_measures
 
-def load_searcher_wordvector_similarities(ix_data):
-    """Load and return cached word2vec similarities
-    Each item in the dictionary has a pair of words as key, the pair is ordered alphabetically.
-    """
-    # Parser for query terms 
-    parser = QueryParser("pair", ix_data.schema)
-    return ix_data.searcher(), parser
+def save_dict_wordvector_similarities(sim_measures):
+    len_dic = len(sim_measures)
+    print(" - Saving %d measures" % len_dic)
+    if not os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
+        os.mkdir(WORD2VEC_MEASURED_SIMILARITIES_CACHE)
+        tmp_sim_measures = {}
+        i = 1
+        p = 0
+        for k,v in sim_measures.items():
+            if v < 1.0:
+                tmp_sim_measures[k] = v
+            if i % 500000 == 0:
+                print(" -", i, "pairs")
+                save_part_pickle(p, tmp_sim_measures)
+                p+=1
+                del tmp_sim_measures
+                tmp_sim_measures = {}
+            i+=1
+        save_part_pickle(p, tmp_sim_measures)
 
-def load_writer_wordvector_similarities(ix_data):
-    print("Creating writer to save similarity measures ...", file=sys.stderr)
-    writer = ix_data.writer(limitmb=2048)
-    return writer
-
-def get_wordvector_similarity(pair, searcher, parser):
-    # Searcher for all documents
-    q = parser.parse(pair)
-    result = searcher.search(q)
-    for r in result:
-        # print("Pair: sim = %s" % r["sim"])
-        return r["sim"]
-
-def save_wordvector_similarity(pair, sim, writer):
-    # Define writer 
-    writer.add_document(pair=pair, sim=sim)
+def save_part_pickle(p, tmp_sim_measures):
+    with open(WORD2VEC_MEASURED_SIMILARITIES_CACHE + WORD2VEC_MEASURED_SIMILARITIES_PICKLE % p, "wb") as fout:
+        pickle.dump(tmp_sim_measures, fout)
+        fout.close()
 
 def save_measures(data_path, measures_path, measures):
     """Receive a path resource and a dictionary with pre-computed measures"""
@@ -195,7 +207,7 @@ def load_measures(measures_path):
             # Load measures
             measures = pickle.load(fp)
             fp.close()
-            print(" -  %d measures loaded from %s " % (len(measures), measures_path), file=sys.stderr)
+            print(" - %d measures loaded from %s " % (len(measures), measures_path), file=sys.stderr)
             return measures
     else:
         return {}
