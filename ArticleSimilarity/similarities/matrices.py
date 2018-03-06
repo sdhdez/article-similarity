@@ -133,6 +133,7 @@ def get_word2vec_sim(A, B, word_vectors, sim_measures):
         except KeyError as e:
             # If fails similarity is 0.0
             sim = 0.0
+            sim_measures[pair_id] = sim 
         # Sum of similarities 
         sim_sum = np.sum([sim_sum, sim])
         # Number of pairs |A|x|B|
@@ -168,20 +169,20 @@ def save_dict_wordvector_similarities(sim_measures):
     print(" - Saving %d measures" % len_dic)
     if not os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
         os.mkdir(WORD2VEC_MEASURED_SIMILARITIES_CACHE)
-        tmp_sim_measures = {}
-        i = 1
-        p = 0
-        for k,v in sim_measures.items():
-            if v < 1.0:
-                tmp_sim_measures[k] = v
-            if i % 500000 == 0:
-                print(" -", i, "pairs")
-                save_part_pickle(p, tmp_sim_measures)
-                p+=1
-                del tmp_sim_measures
-                tmp_sim_measures = {}
-            i+=1
-        save_part_pickle(p, tmp_sim_measures)
+    tmp_sim_measures = {}
+    i = 1
+    p = 0
+    for k,v in sim_measures.items():
+        if v < 1.0:
+            tmp_sim_measures[k] = v
+        if i % 5000000 == 0:
+            print(" -", i, "pairs")
+            save_part_pickle(p, tmp_sim_measures)
+            p+=1
+            del tmp_sim_measures
+            tmp_sim_measures = {}
+        i+=1
+    save_part_pickle(p, tmp_sim_measures)
 
 def save_part_pickle(p, tmp_sim_measures):
     with open(WORD2VEC_MEASURED_SIMILARITIES_CACHE + WORD2VEC_MEASURED_SIMILARITIES_PICKLE % p, "wb") as fout:
