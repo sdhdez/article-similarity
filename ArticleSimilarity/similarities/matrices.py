@@ -6,8 +6,12 @@ import gensim
 
 from resources import dataset as rd 
 
+from whoosh.index import open_dir 
+from whoosh.fields import Schema, ID, STORED
+from whoosh.qparser import QueryParser
+
 DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
-WORD2VEC_MEASURED_SIMILARITIES_CACHE = './resources/word2vec-measured-similarities-cache.bin'
+WORD2VEC_MEASURED_SIMILARITIES_CACHE = './resources/word2vec-measured-similarities-cache'
 MEASURES_PATH = '/measures'
 
 def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
@@ -15,6 +19,7 @@ def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
     index_data_path = data_path + rd.INDEX_DATA
     if os.path.exists(index_data_path):
         # Get number of documents
+        docs_ids = docs_ids[:1]
         N = len(docs_ids)
         # Load measures if file exists 
         measures = load_measures(measures_path)
@@ -23,14 +28,15 @@ def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
         if len(measures) != N*(N+1)//2:
             # Clear previous measures 
             measures = {}
-            print("Loading model for word2vec ...")
+            print(" - Wrong measures ...", file=sys.stderr)
+            # Load previous word2vec similarities 
+            ix_data = load_index_wordvector_similarities()
+            ix_word2vec_similarities_searcher, parser = load_searcher_wordvector_similarities(ix_data)
+            ix_word2vec_similarities_writer = load_writer_wordvector_similarities(ix_data)
+            print(" - Loading word2vec model ...")
             word_vectors = gensim.models.KeyedVectors.load_word2vec_format(
                                             DEAULT_WORDVECTORS, 
-                                            binary=True
-                                        )
-            print("Calculating measures ...", file=sys.stderr)
-            # Load previous word2vec similarities 
-            word2vec_similarities = load_cached_wordvector_similarities()
+                                            binary=True)
             # Iter over document ids (triangular matrix)
             for d_i, doc_id in enumerate(docs_ids):
                 # Row document
@@ -48,15 +54,21 @@ def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
                     # Get jaccard similarity
                     measures[measure_id]['jaccard'] = get_jaccard_sim(doc_i, doc_j)
                     # Get word2vec similarity
-                    measures[measure_id]['word2vec'] = get_word2vec_sim(doc_i, doc_j, word_vectors, word2vec_similarities)
+                    measures[measure_id]['word2vec'] = get_word2vec_sim(doc_i, doc_j, 
+                                                                        word_vectors, 
+                                                                        ix_word2vec_similarities_searcher, parser,
+                                                                        ix_word2vec_similarities_writer)
                     # Change column 
                     d_j += 1
+                    if d_j % 50000 == 0:
+                        print(" - Document pair: %d" % d_j, file=sys.stderr)
             # Free memory
+            print(" - Unloading word2vec model ...", file=sys.stderr)
             del word_vectors
             # Save measures 
             save_measures(data_path, measures_path, measures)
             # Save measured word2vec similarities
-            save_wordvector_similarities(word2vec_similarities)
+            ix_word2vec_similarities_writer.commit()
     else:
         print("Index doesn't exists", file=sys.stderr)
 
@@ -94,7 +106,7 @@ def get_jaccard_sim(A, B):
     jaccard_sim = np.divide(cAB, (cA + cB - cAB))
     return jaccard_sim
 
-def get_word2vec_sim(A, B, word_vectors, word2vec_similarities):
+def get_word2vec_sim(A, B, word_vectors, ix_word2vec_similarities_searcher, parser, ix_word2vec_similarities_writer):
     """Receive info for two documents, the word2vec model and a dictionary of precalculated similarities, 
     Return word2vec similarity and save the similarity in the dctionary"""
     # Document's info
@@ -107,17 +119,19 @@ def get_word2vec_sim(A, B, word_vectors, word2vec_similarities):
     # Get all the posible pairs of words from both documents AxB
     for pair in itertools.product(setA,setB):
         try:
-            # Order each pair by alphabetical order to normalize id of pairs  
-            pair = sorted(pair)
-            # Generate unique id (string)
-            pair_id = ",".join(pair)
-            # If pair exists in previous measures retrive the saved measure
-            if pair_id in word2vec_similarities:
-                sim = word2vec_similarities[pair_id]
-            # Otherwise measure and save similarity 
+            if pair[0] == pair[1]:
+                sim = 1.0
             else:
-                sim = word_vectors.similarity(pair[0], pair[1])
-                word2vec_similarities[pair_id] = sim
+                # Order each pair by alphabetical order to normalize id of pairs  
+                pair = sorted(pair)
+                # Generate unique id (string)
+                pair_id = ",".join(pair)
+                # If pair exists in previous measures retrive the saved measure
+                sim = get_wordvector_similarity(pair_id, ix_word2vec_similarities_searcher, parser)
+                if sim == None:
+                    sim = word_vectors.similarity(pair[0], pair[1])
+                    print(pair_id, sim)
+                    save_wordvector_similarity(pair_id, sim, ix_word2vec_similarities_writer)
         except KeyError as e:
             # If fails similarity is 0.0
             sim = 0.0
@@ -130,34 +144,37 @@ def get_word2vec_sim(A, B, word_vectors, word2vec_similarities):
     # Return similarity
     return mean_sim
 
-def load_cached_wordvector_similarities():
-    """Load and return cached word2vec  similarities
+def load_index_wordvector_similarities():
+    if os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
+        print("Opening indexed similarity measures ...", file=sys.stderr)
+        # Open index
+        ix_data = open_dir(WORD2VEC_MEASURED_SIMILARITIES_CACHE) 
+        return ix_data
+
+def load_searcher_wordvector_similarities(ix_data):
+    """Load and return cached word2vec similarities
     Each item in the dictionary has a pair of words as key, the pair is ordered alphabetically.
     """
-    # Open file if exists or return an empty dictionary
-    if os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
-        with open(WORD2VEC_MEASURED_SIMILARITIES_CACHE, "rb") as fp:
-            print("Loading word2vec measures from file ...", file=sys.stderr)
-            word2vec_similarities = pickle.load(fp)
-            fp.close()
-            print(" -  %d word2vec measures loaded from %s " % (len(word2vec_similarities), 
-                                                                    WORD2VEC_MEASURED_SIMILARITIES_CACHE), 
-                                                                    file=sys.stderr)
-            # Return saved similarities
-            return word2vec_similarities
-    else:
-        return {}
+    # Parser for query terms 
+    parser = QueryParser("pair", ix_data.schema)
+    return ix_data.searcher(), parser
 
-def save_wordvector_similarities(word2vec_similarities):
-    """Receive a dictionary with measured similarities between pairs of words and 
-    dump it in a file for future consulting."""
-    with open(WORD2VEC_MEASURED_SIMILARITIES_CACHE, "wb") as fp:
-        print("Saving %d word2vec measured similarities.\
-                \n - File: %s " % (len(word2vec_similarities), WORD2VEC_MEASURED_SIMILARITIES_CACHE), file=sys.stderr)
-        # Dump dictionary to a file 
-        pickle.dump(word2vec_similarities, fp)
-        fp.close()
-        return True
+def load_writer_wordvector_similarities(ix_data):
+    print("Creating writer to save similarity measures ...", file=sys.stderr)
+    writer = ix_data.writer(limitmb=2048)
+    return writer
+
+def get_wordvector_similarity(pair, searcher, parser):
+    # Searcher for all documents
+    q = parser.parse(pair)
+    result = searcher.search(q)
+    for r in result:
+        # print("Pair: sim = %s" % r["sim"])
+        return r["sim"]
+
+def save_wordvector_similarity(pair, sim, writer):
+    # Define writer 
+    writer.add_document(pair=pair, sim=sim)
 
 def save_measures(data_path, measures_path, measures):
     """Receive a path resource and a dictionary with pre-computed measures"""
