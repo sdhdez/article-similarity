@@ -6,10 +6,6 @@ import gensim
 
 from resources import dataset as rd 
 
-from whoosh.index import open_dir 
-from whoosh.fields import Schema, ID, STORED
-from whoosh.qparser import QueryParser
-
 DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
 WORD2VEC_MEASURED_SIMILARITIES_CACHE = './resources/word2vec-measured-similarities-cache'
 WORD2VEC_MEASURED_SIMILARITIES_PICKLE = '/measure-%s.pkl'
@@ -133,7 +129,6 @@ def get_word2vec_sim(A, B, word_vectors, sim_measures):
         except KeyError as e:
             # If fails similarity is 0.0
             sim = 0.0
-            sim_measures[pair_id] = sim 
         # Sum of similarities 
         sim_sum = np.sum([sim_sum, sim])
         # Number of pairs |A|x|B|
@@ -173,21 +168,21 @@ def save_dict_wordvector_similarities(sim_measures):
     i = 1
     p = 0
     for k,v in sim_measures.items():
-        if v < 1.0:
+        if v < 1.0 and v > 0.0:
             tmp_sim_measures[k] = v
-        if i % 5000000 == 0:
+        if i % 2000000 == 0:
             print(" -", i, "pairs")
             save_part_pickle(p, tmp_sim_measures)
             p+=1
             del tmp_sim_measures
             tmp_sim_measures = {}
+
         i+=1
     save_part_pickle(p, tmp_sim_measures)
 
 def save_part_pickle(p, tmp_sim_measures):
     with open(WORD2VEC_MEASURED_SIMILARITIES_CACHE + WORD2VEC_MEASURED_SIMILARITIES_PICKLE % p, "wb") as fout:
         pickle.dump(tmp_sim_measures, fout)
-        fout.close()
 
 def save_measures(data_path, measures_path, measures):
     """Receive a path resource and a dictionary with pre-computed measures"""
