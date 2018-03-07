@@ -1,69 +1,44 @@
 import os.path
-import pickle
 import numpy as np
-from scipy.sparse import dok_matrix
-from whoosh.index import open_dir, create_in
-from whoosh.fields import Schema, TEXT, ID, KEYWORD, NUMERIC, STORED
-from whoosh import qparser
-from whoosh.qparser import QueryParser
-from whoosh.query import Term, And
 
-from matrices.indexing import INDEX_DATA, INDEX_DATA_SAMPLE, INDEX_JACCARD, INDEX_WORD2VEC
+from similarities import matrices as sm
+from resources import dataset as rd
 
-def get_matrix(measures, field_list):
-    N = len(field_list)
-    dmatrix = dok_matrix((N, N), dtype=np.float32)
-    n_docs = 0
-    for i, f in enumerate(field_list):
-        j = i
-        while j < N:
-            setA = field_list[i]
-            setB = field_list[j]
-            if setA in measures and setB in measures[setA]:
-                dmatrix[i,j] = measures[setA][setB]
-                dmatrix[j,i] = measures[setA][setB]
-            else:
-                dmatrix[i,j] = 0
-                dmatrix[j,i] = 0
-            n_docs += 1
-            j += 1
-    print(i+1,j)
-    return dmatrix.asformat('csr')
+def load_matrix(data_path, sim_type="jaccard", related_docs = True):
+    # Get suffix for current sample parameters
+    extra_suffix = "-related" if related_docs else ""  
+    suffix_path = rd.get_default_suffix(extra_suffix=extra_suffix)
+    # Form measures path 
+    measures_path = data_path + sm.MEASURES_PATH + suffix_path + ".bin"
+    # Get measures 
+    measures = sm.load_measures(measures_path)
+    # Get docs ids 
+    if related_docs:
+        docs_ids = rd.get_docids_sample_aminer_related(data_path)
+    else:
+        docs_ids = rd.get_docids_sample_aminer_random(data_path)
+    # Number of docs
+    N = len(docs_ids)
+    A = [[0 for x in range(N)] for y in range(N)]
+    for d_i in range(0, N):
+        # j = i to avoid repetition, it is a symmetric matrix 
+        doc_i = docs_ids[d_i]
+        d_j = d_i
+        # Columns
+        m_cols = []
+        while d_j < N:
+            doc_j = docs_ids[d_j]
+            indexdoc = doc_i + doc_j
+            # print(d_i, d_j, measures[indexdoc][sim_type])
+            measure = np.float64(measures[indexdoc][sim_type])
+            A[d_i][d_j] = measure
+            if d_i != d_j:
+                A[d_j][d_i] = measure
+            d_j+=1
+    return A
 
-def load_matrix_jaccard_sim(data_path):
-    index_jaccard_path = data_path + INDEX_JACCARD
-    index_jaccard_np_matrix_name = data_path + INDEX_JACCARD + "-np-matrix"
-    index_jaccard_np_matrix_file = data_path + INDEX_JACCARD + "-np-matrix.npy"
-    if os.path.exists(index_jaccard_path):
-        if not os.path.exists(index_jaccard_np_matrix_file):
-            print("Loading indexed jaccard ...")
-            ix_jaccard = open_dir(index_jaccard_path)
-            with ix_jaccard.reader() as reader:
-                measures = get_measures(reader)
-                field_list = get_document_ids(data_path)
-                print("Loading matrix ...")
-                np_matrix = get_matrix(measures, field_list)
-                np.save(index_jaccard_np_matrix_name, np_matrix.todense())
-                return np.load(index_jaccard_np_matrix_file)
-        else: 
-            print("Loading saved matrix ...")
-            return np.load(index_jaccard_np_matrix_file) 
+def load_matrix_word2vec_sim(data_path, related_docs = True):
+    return np.array(load_matrix(data_path, sim_type="word2vec", related_docs=related_docs))
 
-def load_matrix_word2vec_sim(data_path):
-    index_word2vec_path = data_path + INDEX_WORD2VEC
-    index_word2vec_np_matrix_name = data_path + INDEX_WORD2VEC + '-np-matrix'
-    index_word2vec_np_matrix_file = data_path + INDEX_WORD2VEC + '-np-matrix.npy'
-    if os.path.exists(index_word2vec_path):
-        if not os.path.exists(index_word2vec_np_matrix_file):
-            print("Loading indexed word2vec ...")
-            ix_word2vec = open_dir(index_word2vec_path)
-            with ix_word2vec.reader() as reader:
-                measures = get_measures(reader)
-                field_list = get_document_ids(data_path)
-                print("Loading matrix ...")
-                np_matrix = get_matrix(measures, field_list)
-                np.save(index_word2vec_np_matrix_name, np_matrix.todense())
-                return np.load(index_word2vec_np_matrix_file) 
-        else: 
-            print("Loading saved matrix ...")
-            return np.load(index_word2vec_np_matrix_file) 
+def load_matrix_jaccard_sim(data_path, related_docs = True):
+    return np.array(load_matrix(data_path, sim_type="jaccard", related_docs=related_docs))

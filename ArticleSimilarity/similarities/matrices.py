@@ -176,7 +176,6 @@ def save_dict_wordvector_similarities(sim_measures):
             p+=1
             del tmp_sim_measures
             tmp_sim_measures = {}
-
         i+=1
     save_part_pickle(p, tmp_sim_measures)
 
