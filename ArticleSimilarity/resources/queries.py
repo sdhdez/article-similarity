@@ -1,6 +1,9 @@
-from whoosh.index import open_dir, create_in
+import os
+from whoosh.index import open_dir
 from whoosh import qparser
 from whoosh.qparser import QueryParser
+
+from resources.dataset import INDEX_DATA
 
 # Methods to query data 
 def get_cursor(index_data_path):

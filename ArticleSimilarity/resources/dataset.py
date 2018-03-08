@@ -243,6 +243,13 @@ def save_sample_aminer_random(data_path):
                 \n - Sample path: %s" % (index_data_path, index_data_sample_path), 
                 file=sys.stderr)
 
+def get_sample_ids(data_path, related_docs=True):
+    if related_docs:
+        docs_ids = get_docids_sample_aminer_related(data_path)
+    else:
+        docs_ids = get_docids_sample_aminer_random(data_path)
+    return docs_ids
+
 def get_docids_sample_aminer(index_data_sample_path):
     """Return docs ids from sample of documents"""
     # Open file if exists 
