@@ -12,11 +12,12 @@ from whoosh.qparser import QueryParser
 
 INDEX_DATA = "/index-data"
 INDEX_DATA_SAMPLE = "/index-data-sample"
-INDEX_JACCARD = "/index-jaccard"
-INDEX_WORD2VEC = "/index-word2vec"
+
+DATA_SAMPLE_CONTENT_REQUIRED = False
 
 # Default extension for aminer files in txt
 EXT_AMINER_TXT = ".txt"
+
 # Tokenizer from Whoosh 
 analizer = RegexTokenizer() | LowercaseFilter() | StopFilter()
 
@@ -28,7 +29,8 @@ def get_default_sample_init():
     return nrand, doc_limit, fixed_seed
 
 def get_default_suffix(extra_suffix=""):
-    nrand, doc_limit, fixed_seed = get_default_sample_init()
+    nrand, doc_limit, fixed_seed = get_default_sample_init() 
+    extra_suffix += "-content" if DATA_SAMPLE_CONTENT_REQUIRED else ""
     suffix_path = "-" + str(nrand) + "-" + str(doc_limit) + "-" + str(fixed_seed) + extra_suffix
     return suffix_path
 
@@ -156,10 +158,12 @@ def save_sample_aminer_related(data_path):
                 print(" - Seed: %d, \
                         \n - Threshold: %f, \
                         \n - Random docs: %d, \
-                        \n - Related docs per doc: %d" % (fixed_seed, 
+                        \n - Max related docs per random doc: %d, \
+                        \n - Docs in dataset: %d" % (fixed_seed, 
                                                     roulette_threshold, 
                                                     nrand, 
-                                                    doc_limit), file=sys.stderr)
+                                                    doc_limit,
+                                                    reader.doc_count()), file=sys.stderr)
                 # Content hash 
                 docs_by_hashes = {}
                 # Iter documents
@@ -179,6 +183,9 @@ def save_sample_aminer_related(data_path):
                     # Query documents related with the title 
                     result = searcher.search(q, limit=doc_limit)
                     for r in result:
+                        if DATA_SAMPLE_CONTENT_REQUIRED:
+                            if len(r['title']) == len(r['content']):
+                                continue
                         docs_by_hashes[r['bag_of_words_hash']] = r['indexdoc']
                 # Dump document ids from sample 
                 with open(index_data_sample_path, "wb") as fp:
@@ -214,9 +221,11 @@ def save_sample_aminer_random(data_path):
             random.seed(fixed_seed)
             print(" - Seed: %d, \
                     \n - Threshold: %f, \
-                    \n - Random docs: %s" % (fixed_seed, 
+                    \n - Random docs: %s, \
+                    \n - Docs in dataset: %s" % (fixed_seed, 
                                                 roulette_threshold, 
-                                                expected_docs), file=sys.stderr)
+                                                expected_docs, 
+                                                reader.doc_count()), file=sys.stderr)
             # Content by hash to avoid content repetition 
             docs_by_hashes = {}
             # Iter documents
@@ -229,6 +238,9 @@ def save_sample_aminer_random(data_path):
                     continue
                 # Get stored fields from document
                 doc = reader.stored_fields(docid)
+                if DATA_SAMPLE_CONTENT_REQUIRED:
+                    if len(doc['title']) == len(doc['content']):
+                        continue
                 docs_by_hashes[doc['bag_of_words_hash']] = doc['indexdoc']
             # Dump document ids from sample 
             with open(index_data_sample_path, "wb") as fp:

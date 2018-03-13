@@ -32,6 +32,7 @@ def measures_sample_aminer(data_path, measures_path, docs_ids, docs):
             word_vectors = gensim.models.KeyedVectors.load_word2vec_format(
                                             DEAULT_WORDVECTORS, 
                                             binary=True)
+            print("Starting to measure ...")
             # Iter over document ids (triangular matrix)
             for d_i, doc_id in enumerate(docs_ids):
                 # Row document

@@ -3,6 +3,8 @@ from resources import dataset as rd
 from similarities import matrices as sm
 from similarities import loading as sl
 
+rd.DATA_SAMPLE_CONTENT_REQUIRED = True
+
 if __name__ == "__main__":
     print("Main from command-line.", file=sys.stderr)
     data_path = sys.argv[1] if sys.argv[1:2] else "./resources/test"
