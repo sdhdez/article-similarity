@@ -1,15 +1,15 @@
+"""Load run needed methods to load resources a measure similarities"""
 import sys
-from resources import dataset as rd 
 from similarities import matrices as sm
 from similarities import loading as sl
-
-rd.DATA_SAMPLE_CONTENT_REQUIRED = True
+from resources import dataset as rd
 
 if __name__ == "__main__":
     print("Main from command-line.", file=sys.stderr)
     data_path = sys.argv[1] if sys.argv[1:2] else "./resources/test"
     print("Generating indexes and matrices ...", file=sys.stderr)
     print("\nRelated documents", file=sys.stderr)
+    rd.DATA_SAMPLE_CONTENT_REQUIRED = True
     rd.index_aminer_txt_in(data_path)
     rd.save_sample_aminer_related(data_path)
     sm.measures_sample_aminer_related(data_path)
