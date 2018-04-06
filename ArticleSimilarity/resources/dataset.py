@@ -290,7 +290,7 @@ def get_docidssample_aminer(index_data_sample_path):
         docs_ids = pickle.load(fin)
         print("Sample size: %d documents" % len(docs_ids), file=sys.stderr)
         print(" - Content from %s" % (index_data_sample_path), file=sys.stderr)
-        return docs_ids[:10]
+        return docs_ids
 
 def get_docidssample_aminer_related(data_path):
     """Return docs ids from sample of related documents"""
