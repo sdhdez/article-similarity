@@ -1,94 +1,103 @@
 """ Methods to measure similarity matrices """
 import sys
 import os.path
-import itertools
 import pickle
 import numpy as np
 import gensim
 
 from resources import dataset as rd
+import methods.useful as mu
 
 DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
-WORD2VEC_MEASURED_SIMILARITIES_CACHE = './resources/word2vec-measured-similarities-cache'
-WORD2VEC_MEASURED_SIMILARITIES_PICKLE = '/measure-%s.pkl'
 MEASURES_PATH = '/measures'
+DOCS_CENTROIDS_PATH = '/docs-centroids'
 
 def measures_sample_aminer(data_path, docs, extra_suffix=""):
     """Receive a path to resources and save jaccard and word2vec similarities"""
-    index_data_path = data_path + rd.INDEX_DATA
     # Form measures path
     measures_path = get_measures_path(data_path, extra_suffix=extra_suffix)
-    if os.path.exists(index_data_path):
-        docs_ids = docs[0]
-        docs = docs[1]
+    if docs:
+        docs_ids = docs['docs_ids']
+        documents = docs['docs']
         # Get number of documents
         len_docs_ids = len(docs_ids)
         # Load measures if file exists
-        measures = load_measures(measures_path)
+        measures = {'jaccard': load_measures(measures_path, "jaccard"),
+                    'word2vec': load_measures(measures_path, "word2vec")
+                   }
         # If the expected number of measures doesn't match then
         # calculate the measures
         expected_measures = len_docs_ids*(len_docs_ids+1)//2
-        if len(measures) != expected_measures:
+        if len(measures['jaccard']) != expected_measures:
             # Clear previous measures
-            measures = {}
-            print(" - Wrong measures, %s expected" % expected_measures, file=sys.stderr)
-            # Load previous word2vec similarities
-            sim_measures = load_wordvector_similarities()
-            print("Loading word2vec model ...")
-            word_vectors = gensim.models.KeyedVectors.load_word2vec_format(DEAULT_WORDVECTORS,
-                                                                           binary=True)
-            print("Starting to measure ...")
+            del measures
+            measures = {'jaccard': {},
+                        'word2vec': {}
+                       }
+            print(" - Re-measuring similarities, %s expected" % expected_measures, file=sys.stderr)
+            print("Loading centroids ...")
+            docs_centroids = get_docs_centroids(documents)
+            measures_batch = {'word2vec': {}}
+            print("Measuring similarities ...")
             # Iter over document ids (triangular matrix)
             for d_i, doc_id in enumerate(docs_ids):
                 # Row document
-                doc_i = docs[doc_id]
+                doc_i = documents[doc_id]
                 # j = i to avoid repetition
                 d_j = d_i
                 # Columns
                 while d_j < len_docs_ids:
                     # Col document
-                    doc_j = docs[docs_ids[d_j]]
+                    doc_j = documents[docs_ids[d_j]]
                     # Unique id for pair of documents
                     measure_id = doc_id + docs_ids[d_j]
-                    # Initialize dictionary with the id
-                    measures.setdefault(measure_id, {'word2vec': 0.0, 'jaccard': 0.0})
                     # Get jaccard similarity
-                    measures[measure_id]['jaccard'] = get_jaccard_sim(doc_i, doc_j)
+                    measures['jaccard'][measure_id] = get_jaccard_sim(doc_i, doc_j)
                     # Get word2vec similarity
-                    measures[measure_id]['word2vec'] = get_word2vec_sim(doc_i, doc_j,
-                                                                        word_vectors,
-                                                                        sim_measures)
+                    measures_batch['word2vec'][measure_id] = get_word2vec_centroid_sim(
+                        doc_id, docs_ids[d_j], docs_centroids)
                     # Change column
                     d_j += 1
+                    if d_j % 5000 == 0:
+                        update_measures_batch(measures, measures_batch, 'word2vec')
                     if d_j % 50000 == 0:
                         print(" - Document pair: %d" % d_j, file=sys.stderr)
-            # Free memory
-            print("Unloading word2vec model ...", file=sys.stderr)
-            del word_vectors
             # Save measures
+            update_measures_batch(measures, measures_batch, 'word2vec')
             save_measures(measures_path, measures)
-            # Save measured word2vec similarities
-            save_wordvector_similarities(sim_measures)
     else:
         print("Index doesn't exists", file=sys.stderr)
+
+def update_measures_batch(measures, measures_batch, method):
+    """Update dict with results from batch of tensors"""
+    if measures_batch[method]:
+        measures[method].update(mu.tensor_to_value(measures_batch[method]))
+        del measures_batch[method]
+        measures_batch[method] = {}
 
 def get_measures_path(data_path, extra_suffix=""):
     """Receive path to resources and return default path to save measures"""
     # Get suffix for current sample parameters
     suffix_path = rd.get_default_suffix(extra_suffix=extra_suffix)
-    return data_path + MEASURES_PATH + suffix_path + ".bin"
+    return data_path + MEASURES_PATH + suffix_path
+
+def get_docs_centroids_path(data_path, extra_suffix=""):
+    """Receive path to resources and return default path to save docs's centroids"""
+    # Get suffix for current sample parameters
+    suffix_path = rd.get_default_suffix(extra_suffix=extra_suffix)
+    return data_path + DOCS_CENTROIDS_PATH + suffix_path + ".bin"
 
 def measures_sample_aminer_related(data_path):
     """Receive a path to resources and save jaccard and word2vec similarities"""
     # Load docs and ids in memory
     docs = rd.get_sample_aminer_related(data_path)
-    measures_sample_aminer(data_path, docs, extra_suffix="-related")
+    measures_sample_aminer(data_path, docs, extra_suffix="-related-fullcontent")
 
 def measures_sample_aminer_random(data_path):
     """Receive a path to resources and save jaccard and word2vec similarities"""
     # Load docs and ids in memory
     docs = rd.get_sample_aminer_random(data_path)
-    measures_sample_aminer(data_path, docs)
+    measures_sample_aminer(data_path, docs, extra_suffix="-random-fullcontent")
 
 def get_jaccard_sim(wordlist_a, wordlist_b):
     """Receive info for two documents and return jaccard similarity"""
@@ -104,116 +113,95 @@ def get_jaccard_sim(wordlist_a, wordlist_b):
     jaccard_sim = np.divide(cardinality_ab, (cardinality_a + cardinality_b - cardinality_ab))
     return jaccard_sim
 
-def get_word2vec_sim(wordlist_a, wordlist_b, word_vectors, sim_measures):
-    """Receive info for two documents, the word2vec model
-    and a dictionary of precalculated similarities,
-    Return word2vec similarity and save the similarity in the dctionary"""
-    # Document's info
-    bag_of_words_a = wordlist_a['bag_of_words']
-    bag_of_words_b = wordlist_b['bag_of_words']
-    # Initialize variables
-    mean_sim = 0.0
-    sim_sum = 0.0
-    n_pairs = 0
-    # Get all the posible pairs of words from both documents AxB
-    for pair in itertools.product(bag_of_words_a, bag_of_words_b):
-        try:
-            if pair[0] == pair[1]:
-                sim = 1.0
-            else:
-                # Order each pair by alphabetical order to normalize id of pairs
-                pair = sorted(pair)
-                # Generate unique id (string)
-                pair_id = ",".join(pair)
-                # If pair exists in previous measures retrive the saved measure
-                if pair_id in sim_measures:
-                    sim = sim_measures[pair_id]
-                else:
-                    sim = word_vectors.similarity(pair[0], pair[1])
-                    sim_measures[pair_id] = sim
-        except KeyError:
-            # If fails similarity is 0.0
-            sim = 0.0
-        # Sum of similarities
-        sim_sum = np.sum([sim_sum, sim])
-        # Number of pairs |A|x|B|
-        n_pairs += 1
-        # Mean
-        mean_sim = np.divide(sim_sum, n_pairs)
-    # Return similarity
-    return mean_sim
+def get_docs_centroids(documents):
+    """Receive dict with documents and word2vec model and return it of tensors"""
+    docs_centroids = {}
+    print("Loading word2vec model ...")
+    wordvectors = gensim.models.KeyedVectors.load_word2vec_format(DEAULT_WORDVECTORS,
+                                                                  binary=True)
+    for doc_id, doc in documents.items():
+        docs_centroids[doc_id] = mu.wordvectors_centroid(wordvectors, doc['bag_of_words'])
+    # Free memory
+    print("Unloading word2vec model ...", file=sys.stderr)
+    del wordvectors
+    return mu.tensor_to_value(docs_centroids)
 
-def load_wordvector_similarities():
-    """Load word-pairs similarities from pickle files"""
-    if os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
-        print("Opening cached similarity measures ...", file=sys.stderr)
+def get_word2vec_centroid_sim(id_a, id_b, docs_centroids):
+    """Receive two doc ids and return tensor with vector similarity"""
+    sim = mu.n_similarity(docs_centroids[id_a],
+                          docs_centroids[id_b])
+    # Return similarity
+    return sim
+
+def load_merge_pickles(path_to_pickles, file_preffix="%d"):
+    """Load and merge pickle files in a dict"""
+    if os.path.exists(path_to_pickles):
+        print("Loading pickles ...", file=sys.stderr)
         pickle_number = 0
-        sim_measures = {}
+        content = {}
         el_sum = 0
         while True:
-            path_measure = WORD2VEC_MEASURED_SIMILARITIES_CACHE + \
-                           WORD2VEC_MEASURED_SIMILARITIES_PICKLE % pickle_number
-            if os.path.exists(path_measure):
-                with open(path_measure, "rb") as fin:
-                    tmp = pickle.load(fin)
-                    fin.close()
-                    el_sum += len(tmp)
-                    sim_measures.update(tmp)
-                    del tmp
+            path_to_pickle_file = path_to_pickles + file_preffix % pickle_number
+            if os.path.exists(path_to_pickle_file):
+                with open(path_to_pickle_file, "rb") as fin:
+                    partal_content = pickle.load(fin)
+                    el_sum += len(partal_content)
+                    content.update(partal_content)
+                    del partal_content
                 pickle_number += 1
             else:
                 break
-        print(" - Loaded measures %s = %s" % (el_sum, len(sim_measures)), file=sys.stderr)
-        return sim_measures
+        print(" - Loaded measures %s = %s" % (el_sum, len(content)), file=sys.stderr)
+        return content
 
-def save_wordvector_similarities(sim_measures):
-    """Receive dictironary of word-pairs similarities and save into pickle files"""
-    len_dic = len(sim_measures)
+def save_dict_pickles(path_to_pickles, content, file_preffix="%d"):
+    """Receive dictionary an save it into pickle files"""
+    len_dic = len(content)
     print(" - Saving %d measures" % len_dic)
-    if not os.path.exists(WORD2VEC_MEASURED_SIMILARITIES_CACHE):
-        os.mkdir(WORD2VEC_MEASURED_SIMILARITIES_CACHE)
-    tmp_sim_measures = {}
+    if not os.path.exists(path_to_pickles):
+        os.mkdir(path_to_pickles)
+    partial_content = {}
     i = 1
     pickle_number = 0
-    for key, sim in sim_measures.items():
-        if sim < 1.0 and sim > 0.0:
-            tmp_sim_measures[key] = sim
+    for key, value in content.items():
+        partial_content[key] = value
         if i % 2000000 == 0:
-            print(" -", i, "pairs")
-            save_part_pickle(pickle_number, tmp_sim_measures)
+            print(" -", i, "elements")
+            path_to_pickle_file = path_to_pickles + file_preffix % pickle_number
+            save_dict_pickle(path_to_pickle_file, partial_content)
             pickle_number += 1
-            del tmp_sim_measures
-            tmp_sim_measures = {}
+            del partial_content
+            partial_content = {}
         i += 1
-    save_part_pickle(pickle_number, tmp_sim_measures)
+    path_to_pickle_file = path_to_pickles + file_preffix % pickle_number
+    save_dict_pickle(path_to_pickle_file, partial_content)
 
-def save_part_pickle(pickle_number, tmp_sim_measures):
-    """Receive filename and save dictionary of word-pairs similarities"""
-    with open(WORD2VEC_MEASURED_SIMILARITIES_CACHE + \
-              WORD2VEC_MEASURED_SIMILARITIES_PICKLE % pickle_number, "wb") as fout:
-        pickle.dump(tmp_sim_measures, fout)
+def save_dict_pickle(path_to_pickle_file, content):
+    """Receive filename and save content to pikle file"""
+    with open(path_to_pickle_file, "wb") as fout:
+        pickle.dump(content, fout)
 
 def save_measures(measures_path, measures):
     """Receive a path resource and a dictionary with pre-computed measures"""
-    # Open file to save measures
-    with open(measures_path, "wb") as fout:
-        print("Saving %d measures to file ...\
-                \n - File: %s " % (len(measures), measures_path), file=sys.stderr)
-        # Save measures
-        pickle.dump(measures, fout)
-        fout.close()
-        return True
+    for method in measures:
+        measures_method_path = measures_path + "-" + method + ".bin"
+        # Open file to save measures
+        with open(measures_method_path, "wb") as fout:
+            print("Saving %d measures to file ...\
+                  \n - File: %s " % (len(measures[method]), measures_method_path), file=sys.stderr)
+            # Save measures
+            pickle.dump(measures[method], fout)
+    return True
 
-def load_measures(measures_path):
+def load_measures(measures_path, method):
     """Receive path to resource and load saved measures"""
-    if os.path.exists(measures_path):
-        with open(measures_path, "rb") as fin:
+    measures_method_path = measures_path + "-" + method + ".bin"
+    measures = {}
+    if os.path.exists(measures_method_path):
+        with open(measures_method_path, "rb") as fin:
             print("Loading measures from file ...", file=sys.stderr)
             # Load measures
             measures = pickle.load(fin)
-            fin.close()
             print(" - %d measures loaded from %s " % \
-                    (len(measures), measures_path), file=sys.stderr)
-            return measures
-    else:
-        return {}
+                    (len(measures), measures_method_path), file=sys.stderr)
+    return measures
