@@ -40,6 +40,7 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
             measures_batch = {'word2vec': {}}
             print("Measuring similarities ...")
             # Iter over document ids (triangular matrix)
+            counter = 0
             for d_i, doc_id in enumerate(docs_ids):
                 # Row document
                 doc_i = documents[doc_id]
@@ -58,9 +59,10 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
                         doc_id, docs_ids[d_j], docs_centroids)
                     # Change column
                     d_j += 1
-                    if d_j % 5000 == 0:
+                    counter += 1
+                    if counter % 10000 == 0:
                         update_measures_batch(measures, measures_batch, 'word2vec')
-                    if d_j % 50000 == 0:
+                    if counter % 50000 == 0:
                         print(" - Document pair: %d" % d_j, file=sys.stderr)
             # Save measures
             update_measures_batch(measures, measures_batch, 'word2vec')
