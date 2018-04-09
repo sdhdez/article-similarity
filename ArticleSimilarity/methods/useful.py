@@ -1,5 +1,7 @@
 """ Useful methods """
+import gc
 import tensorflow as tf
+import numpy as np
 
 def get_svd_reconstructions(sess, matrices_list, n_elements, nsv=1):
     """ Receive a list of matrices of same shape to reconstruct using nsv singular values. """
@@ -27,7 +29,7 @@ def wordvectors_centroid(wordvectors, labels, default_shape=True):
     and returns a tensor of shape=(n,) with the mean of the labels's vectors"""
     vector_shape = (300,) if default_shape \
             else (wordvectors.get_vector(next(iter(wordvectors.vocab)))).shape
-    mean = tf.zeros(vector_shape, dtype=tf.float64)
+    mean = np.zeros(vector_shape, dtype=np.float64)
     labels_iter = iter(labels)
     label_count = 0
     label = True
@@ -48,7 +50,11 @@ def n_similarity(labels, predictions):
     cossim_v1v2 = 1 - tf.losses.cosine_distance(vector1, vector2, axis=0)
     return cossim_v1v2
 
-def tensor_to_value(tensor):
+def tensor_to_value(graph):
     """Receive tensor and return values"""
+    values = None
     with tf.Session() as sess:
-        return sess.run(tensor)
+        values = sess.run(graph)
+        sess.close()
+    gc.collect()
+    return values

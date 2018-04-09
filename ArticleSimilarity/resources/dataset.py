@@ -31,6 +31,11 @@ def get_default_sample_init():
     fixed_seed = 0
     return nrand, doc_limit, fixed_seed
 
+def get_default_extra_suffix(related_docs=True):
+    """Return extra suffix"""
+    extra_suffix = "-related-fullcontent" if related_docs else "-random-fullcontent"
+    return extra_suffix
+
 def get_default_suffix(extra_suffix=""):
     """Return default suffix"""
     nrand, doc_limit, fixed_seed = get_default_sample_init()
@@ -45,11 +50,13 @@ def get_default_sample_path(data_path, sample_suffix=""):
 
 def get_default_sample_path_related(data_path):
     """Return path to sample with default parameters as suffix"""
-    return get_default_sample_path(data_path, sample_suffix="-related-fullcontent")
+    extra_suffix = get_default_extra_suffix(related_docs=True)
+    return get_default_sample_path(data_path, sample_suffix=extra_suffix)
 
 def get_default_sample_path_random(data_path):
     """Return path to sample with default parameters as suffix"""
-    return get_default_sample_path(data_path, sample_suffix="-random-fullcontent")
+    extra_suffix = get_default_extra_suffix(related_docs=False)
+    return get_default_sample_path(data_path, sample_suffix=extra_suffix)
 
 def get_filenames(path_resources, ext=EXT_AMINER_TXT):
     """Receive a path to resources and yield a list of paths to files with extension 'ext'"""
@@ -166,7 +173,7 @@ def save_sample_aminer_related(data_path):
                 print("Sampling related documents ...", file=sys.stderr)
                 # Threshold to get nrand random documents
                 # roulette_threshold = (2.0*nrand)/reader.doc_count()
-                roulette_threshold = 0.5
+                roulette_threshold = 0.2
                 # Init pseudo-random generator
                 random.seed(fixed_seed)
                 print(" - Seed: %d, \
@@ -273,17 +280,20 @@ def save_sample_aminer_random(data_path):
 
 def doc_has_content(doc):
     """Check if doc has content"""
-    return len(doc['title']) < len(doc['content'])
+    len_title = len(doc['title'].split())
+    len_content = len(doc['content'].split())
+    # 55: mean_len_content - mean_len_content*standard_deviation in v1
+    return len_content - len_title > 55
 
 def get_sample_ids(data_path, related_docs=True):
     """Return doc_ids for sample"""
     if related_docs:
-        docs_ids = get_docidssample_aminer_related(data_path)
+        docs_ids = get_docids_sampleaminer_related(data_path)
     else:
-        docs_ids = get_docidssample_aminer_random(data_path)
+        docs_ids = get_docids_sampleaminer_random(data_path)
     return docs_ids
 
-def get_docidssample_aminer(index_data_sample_path):
+def get_docids_sampleaminer(index_data_sample_path):
     """Return docs ids from sample of documents"""
     # Open file if exists
     with open(index_data_sample_path, "rb") as fin:
@@ -292,17 +302,17 @@ def get_docidssample_aminer(index_data_sample_path):
         print(" - Content from %s" % (index_data_sample_path), file=sys.stderr)
         return docs_ids
 
-def get_docidssample_aminer_related(data_path):
+def get_docids_sampleaminer_related(data_path):
     """Return docs ids from sample of related documents"""
     # Get sample default path
     index_data_sample_path = get_default_sample_path_related(data_path)
-    return get_docidssample_aminer(index_data_sample_path)
+    return get_docids_sampleaminer(index_data_sample_path)
 
-def get_docidssample_aminer_random(data_path):
+def get_docids_sampleaminer_random(data_path):
     """Return docs ids from sample of random documents"""
     # Get sample default path
     index_data_sample_path = get_default_sample_path_random(data_path)
-    return get_docidssample_aminer(index_data_sample_path)
+    return get_docids_sampleaminer(index_data_sample_path)
 
 def get_sample_aminer(index_data_path, docs_ids):
     """Receive path to sample and return a list with docs ids and
@@ -342,7 +352,7 @@ def get_sample_aminer_related(data_path):
     # Get index default path
     index_data_path = data_path + INDEX_DATA
     # Get docs ids
-    docs_ids = get_docidssample_aminer_related(data_path)
+    docs_ids = get_docids_sampleaminer_related(data_path)
     return get_sample_aminer(index_data_path, docs_ids)
 
 def get_sample_aminer_random(data_path):
@@ -351,5 +361,5 @@ def get_sample_aminer_random(data_path):
     # Get index default path
     index_data_path = data_path + INDEX_DATA
     # Get docs ids
-    docs_ids = get_docidssample_aminer_random(data_path)
+    docs_ids = get_docids_sampleaminer_random(data_path)
     return get_sample_aminer(index_data_path, docs_ids)

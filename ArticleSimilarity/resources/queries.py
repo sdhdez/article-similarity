@@ -1,6 +1,7 @@
 """Module to query documents"""
 import os
 from whoosh.index import open_dir
+from whoosh import qparser
 from whoosh.qparser import QueryParser
 
 from resources.dataset import INDEX_DATA
@@ -20,6 +21,15 @@ def cur_indexed_docs(data_path):
 def find_indexdoc(ix_data, query, doc_limit=1):
     """Yield documents from Whoosh index matching query"""
     parser = QueryParser("indexdoc", ix_data.schema)
+    q_docs = parser.parse(query)
+    with ix_data.searcher() as searcher:
+        result = searcher.search(q_docs, limit=doc_limit)
+        for result in result:
+            yield result
+
+def find_all_indexdoc(ix_data, query, doc_limit=None):
+    """Yield documents from Whoosh index matching query"""
+    parser = QueryParser("indexdoc", ix_data.schema, group=qparser.OrGroup)
     q_docs = parser.parse(query)
     with ix_data.searcher() as searcher:
         result = searcher.search(q_docs, limit=doc_limit)

@@ -2,7 +2,9 @@
 import sys
 import os.path
 import pickle
+
 import numpy as np
+from scipy import spatial
 import gensim
 
 from resources import dataset as rd
@@ -37,7 +39,7 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
             print(" - Re-measuring similarities, %s expected" % expected_measures, file=sys.stderr)
             print("Loading centroids ...")
             docs_centroids = get_docs_centroids(documents)
-            measures_batch = {'word2vec': {}}
+            # measures_batch = {'word2vec': {}}
             print("Measuring similarities ...")
             # Iter over document ids (triangular matrix)
             counter = 0
@@ -55,17 +57,15 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
                     # Get jaccard similarity
                     measures['jaccard'][measure_id] = get_jaccard_sim(doc_i, doc_j)
                     # Get word2vec similarity
-                    measures_batch['word2vec'][measure_id] = get_word2vec_centroid_sim(
+                    measures['word2vec'][measure_id] = get_word2vec_centroid_sim(
                         doc_id, docs_ids[d_j], docs_centroids)
                     # Change column
                     d_j += 1
                     counter += 1
-                    if counter % 10000 == 0:
-                        update_measures_batch(measures, measures_batch, 'word2vec')
                     if counter % 50000 == 0:
-                        print(" - Document pair: %d" % d_j, file=sys.stderr)
+                        print(" - Document pair: %d, %d" % (d_i, d_j), file=sys.stderr)
             # Save measures
-            update_measures_batch(measures, measures_batch, 'word2vec')
+            # update_measures_batch(measures, measures_batch, 'word2vec')
             save_measures(measures_path, measures)
     else:
         print("Index doesn't exists", file=sys.stderr)
@@ -93,13 +93,15 @@ def measures_sample_aminer_related(data_path):
     """Receive a path to resources and save jaccard and word2vec similarities"""
     # Load docs and ids in memory
     docs = rd.get_sample_aminer_related(data_path)
-    measures_sample_aminer(data_path, docs, extra_suffix="-related-fullcontent")
+    extra_suffix = rd.get_default_extra_suffix(related_docs=True)
+    measures_sample_aminer(data_path, docs, extra_suffix=extra_suffix)
 
 def measures_sample_aminer_random(data_path):
     """Receive a path to resources and save jaccard and word2vec similarities"""
     # Load docs and ids in memory
     docs = rd.get_sample_aminer_random(data_path)
-    measures_sample_aminer(data_path, docs, extra_suffix="-random-fullcontent")
+    extra_suffix = rd.get_default_extra_suffix(related_docs=False)
+    measures_sample_aminer(data_path, docs, extra_suffix=extra_suffix)
 
 def get_jaccard_sim(wordlist_a, wordlist_b):
     """Receive info for two documents and return jaccard similarity"""
@@ -126,12 +128,11 @@ def get_docs_centroids(documents):
     # Free memory
     print("Unloading word2vec model ...", file=sys.stderr)
     del wordvectors
-    return mu.tensor_to_value(docs_centroids)
+    return docs_centroids
 
 def get_word2vec_centroid_sim(id_a, id_b, docs_centroids):
     """Receive two doc ids and return tensor with vector similarity"""
-    sim = mu.n_similarity(docs_centroids[id_a],
-                          docs_centroids[id_b])
+    sim = 1 - spatial.distance.cosine(docs_centroids[id_a], docs_centroids[id_b])
     # Return similarity
     return sim
 
@@ -198,6 +199,7 @@ def save_measures(measures_path, measures):
 def load_measures(measures_path, method):
     """Receive path to resource and load saved measures"""
     measures_method_path = measures_path + "-" + method + ".bin"
+    print("path", measures_method_path)
     measures = {}
     if os.path.exists(measures_method_path):
         with open(measures_method_path, "rb") as fin:
