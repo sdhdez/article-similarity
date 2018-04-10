@@ -171,9 +171,8 @@ def save_sample_aminer_related(data_path):
         with ix_data.reader() as reader:
             with ix_data.searcher() as searcher:
                 print("Sampling related documents ...", file=sys.stderr)
-                # Threshold to get nrand random documents
-                # roulette_threshold = (2.0*nrand)/reader.doc_count()
-                roulette_threshold = 0.2
+                # Threshold to get nrand*doc_limit random documents
+                roulette_threshold = (nrand*(doc_limit*0.5))/reader.doc_count()
                 # Init pseudo-random generator
                 random.seed(fixed_seed)
                 print(" - Seed: %d, \
@@ -188,10 +187,14 @@ def save_sample_aminer_related(data_path):
                 # Content hash
                 docs_hashes = {}
                 # Iter documents
+                i_doc = 0
                 for docid in reader.all_doc_ids():
+                    i_doc += 1
                     # Minimum expected number of docs
                     if len(docs_hashes) >= nrand*doc_limit:
                         break
+                    if i_doc % 200000 == 0:
+                        print("   - D_i: %d, Sample size: %d" % (i_doc, len(docs_hashes)))
                     # Get stored fields from document
                     doc = reader.stored_fields(docid)
                     # Check if doc has content
@@ -240,8 +243,7 @@ def save_sample_aminer_random(data_path):
             print("Sampling random documents ...", file=sys.stderr)
             # Threshold to get nrand*doc_limit random documents
             expected_docs = nrand*doc_limit
-            # roulette_threshold = 5.0*expected_docs/reader.doc_count()
-            roulette_threshold = 0.5
+            roulette_threshold = expected_docs/reader.doc_count()
             # Init pseudo-random generator
             random.seed(fixed_seed)
             print(" - Seed: %d, \
@@ -254,10 +256,14 @@ def save_sample_aminer_random(data_path):
             # Content by hash to avoid content repetition
             docs_hashes = {}
             # Iter documents
+            i_doc = 0
             for docid in reader.all_doc_ids():
+                i_doc += 1
                 # Stop condition
                 if len(docs_hashes) >= expected_docs:
                     break
+                if i_doc % 200000 == 0:
+                    print("   - D_i: %d, Sample size: %d" % (i_doc, len(docs_hashes)))
                 # Get stored fields from document
                 doc = reader.stored_fields(docid)
                 if not doc_has_content(doc):
@@ -282,8 +288,8 @@ def doc_has_content(doc):
     """Check if doc has content"""
     len_title = len(doc['title'].split())
     len_content = len(doc['content'].split())
-    # 55: mean_len_content - mean_len_content*standard_deviation in v1
-    return len_content - len_title > 55
+    # 50: mean_len_content - 2*mean_len_content*standard_deviation in v1
+    return len_content - len_title > 50
 
 def get_sample_ids(data_path, related_docs=True):
     """Return doc_ids for sample"""
