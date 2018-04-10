@@ -1,4 +1,6 @@
 """ Useful methods """
+import sys
+import time
 import gc
 import tensorflow as tf
 import numpy as np
@@ -20,8 +22,8 @@ def get_svd_reconstructions(sess, matrices_list, n_elements, nsv=1):
         sess.run(tf_op)
         matrix_ = tf.convert_to_tensor(sess.run(variable_matrix_)) # Reconstruction of the matrix A
         matrix_singular_values = tf.convert_to_tensor(sess.run(svd_sigma)) # Singular values
-        print("Matrix reconstruction using %d singular value(s)" % (nsv),
-              matrix_, matrix_singular_values)
+        print_log(("Matrix reconstruction using %d singular value(s)" % (nsv),
+                   matrix_, matrix_singular_values))
         yield matrix_, matrix_singular_values
 
 def wordvectors_centroid(wordvectors, labels, default_shape=True):
@@ -58,3 +60,13 @@ def tensor_to_value(graph):
         sess.close()
     gc.collect()
     return values
+
+def print_log(log, cond=True, echo=True, persistent=True, file=sys.stderr):
+    """Save log"""
+    if cond:
+        if echo:
+            print(log, file=file)
+        if persistent:
+            with open("article-similarity.log", "a") as flog:
+                log = "\n" + time.strftime("%Y/%m/%d %H:%M ", time.gmtime()) + str(log)
+                flog.write(log)

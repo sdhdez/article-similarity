@@ -1,5 +1,4 @@
 """ Methods to measure similarity matrices """
-import sys
 import os.path
 import pickle
 
@@ -9,6 +8,7 @@ import gensim
 
 from resources import dataset as rd
 import methods.useful as mu
+from methods.useful import print_log
 
 DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
 MEASURES_PATH = '/measures'
@@ -25,8 +25,7 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
         len_docs_ids = len(docs_ids)
         # Load measures if file exists
         measures = {'jaccard': load_measures(measures_path, "jaccard"),
-                    'word2vec': load_measures(measures_path, "word2vec")
-                   }
+                    'word2vec': load_measures(measures_path, "word2vec")}
         # If the expected number of measures doesn't match then
         # calculate the measures
         expected_measures = len_docs_ids*(len_docs_ids+1)//2
@@ -34,13 +33,12 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
             # Clear previous measures
             del measures
             measures = {'jaccard': {},
-                        'word2vec': {}
-                       }
-            print(" - Re-measuring similarities, %s expected" % expected_measures, file=sys.stderr)
-            print("Loading centroids ...")
+                        'word2vec': {}}
+            print_log(" - Re-measuring similarities, %s expected" % expected_measures)
+            print_log("Loading centroids ...")
             docs_centroids = get_docs_centroids(documents)
             # measures_batch = {'word2vec': {}}
-            print("Measuring similarities ...")
+            print_log("Measuring similarities ...")
             # Iter over document ids (triangular matrix)
             counter = 0
             for d_i, doc_id in enumerate(docs_ids):
@@ -62,13 +60,12 @@ def measures_sample_aminer(data_path, docs, extra_suffix=""):
                     # Change column
                     d_j += 1
                     counter += 1
-                    if counter % 50000 == 0:
-                        print(" - Document pair: %d, %d" % (d_i, d_j), file=sys.stderr)
+                    print_log(" - Document pair: %d, %d" % (d_i, d_j), cond=(counter % 50000 == 0))
             # Save measures
             # update_measures_batch(measures, measures_batch, 'word2vec')
             save_measures(measures_path, measures)
     else:
-        print("Index doesn't exists", file=sys.stderr)
+        print_log("Index doesn't exists")
 
 def update_measures_batch(measures, measures_batch, method):
     """Update dict with results from batch of tensors"""
@@ -120,13 +117,13 @@ def get_jaccard_sim(wordlist_a, wordlist_b):
 def get_docs_centroids(documents):
     """Receive dict with documents and word2vec model and return it of tensors"""
     docs_centroids = {}
-    print("Loading word2vec model ...")
+    print_log("Loading word2vec model ...")
     wordvectors = gensim.models.KeyedVectors.load_word2vec_format(DEAULT_WORDVECTORS,
                                                                   binary=True)
     for doc_id, doc in documents.items():
         docs_centroids[doc_id] = mu.wordvectors_centroid(wordvectors, doc['bag_of_words'])
     # Free memory
-    print("Unloading word2vec model ...", file=sys.stderr)
+    print_log("Unloading word2vec model ...")
     del wordvectors
     return docs_centroids
 
@@ -139,7 +136,7 @@ def get_word2vec_centroid_sim(id_a, id_b, docs_centroids):
 def load_merge_pickles(path_to_pickles, file_preffix="%d"):
     """Load and merge pickle files in a dict"""
     if os.path.exists(path_to_pickles):
-        print("Loading pickles ...", file=sys.stderr)
+        print_log("Loading pickles ...")
         pickle_number = 0
         content = {}
         el_sum = 0
@@ -154,13 +151,13 @@ def load_merge_pickles(path_to_pickles, file_preffix="%d"):
                 pickle_number += 1
             else:
                 break
-        print(" - Loaded measures %s = %s" % (el_sum, len(content)), file=sys.stderr)
+        print_log(" - Loaded measures %s = %s" % (el_sum, len(content)))
         return content
 
 def save_dict_pickles(path_to_pickles, content, file_preffix="%d"):
     """Receive dictionary an save it into pickle files"""
     len_dic = len(content)
-    print(" - Saving %d measures" % len_dic)
+    print_log(" - Saving %d measures" % len_dic)
     if not os.path.exists(path_to_pickles):
         os.mkdir(path_to_pickles)
     partial_content = {}
@@ -169,7 +166,7 @@ def save_dict_pickles(path_to_pickles, content, file_preffix="%d"):
     for key, value in content.items():
         partial_content[key] = value
         if i % 2000000 == 0:
-            print(" -", i, "elements")
+            print_log(" - %d elements" % i)
             path_to_pickle_file = path_to_pickles + file_preffix % pickle_number
             save_dict_pickle(path_to_pickle_file, partial_content)
             pickle_number += 1
@@ -190,8 +187,8 @@ def save_measures(measures_path, measures):
         measures_method_path = measures_path + "-" + method + ".bin"
         # Open file to save measures
         with open(measures_method_path, "wb") as fout:
-            print("Saving %d measures to file ...\
-                  \n - File: %s " % (len(measures[method]), measures_method_path), file=sys.stderr)
+            print_log("Saving %d measures to file ...\
+                      \n - File: %s " % (len(measures[method]), measures_method_path))
             # Save measures
             pickle.dump(measures[method], fout)
     return True
@@ -199,13 +196,13 @@ def save_measures(measures_path, measures):
 def load_measures(measures_path, method):
     """Receive path to resource and load saved measures"""
     measures_method_path = measures_path + "-" + method + ".bin"
-    print("path", measures_method_path)
+    print_log("Path: %s" %  measures_method_path)
     measures = {}
     if os.path.exists(measures_method_path):
         with open(measures_method_path, "rb") as fin:
-            print("Loading measures from file ...", file=sys.stderr)
+            print_log("Loading measures from file ...")
             # Load measures
             measures = pickle.load(fin)
-            print(" - %d measures loaded from %s " % \
-                    (len(measures), measures_method_path), file=sys.stderr)
+            print_log(" - %d measures loaded from %s " % \
+                      (len(measures), measures_method_path))
     return measures

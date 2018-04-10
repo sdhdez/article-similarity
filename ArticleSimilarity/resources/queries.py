@@ -5,6 +5,7 @@ from whoosh import qparser
 from whoosh.qparser import QueryParser
 
 from resources.dataset import INDEX_DATA
+from methods.useful import print_log
 
 def get_cursor(index_data_path):
     """Return Whoosh cursor to given path"""
@@ -42,7 +43,7 @@ def find_in_content(ix_data, query, doc_limit=10):
     q_docs = parser.parse(query)
     with ix_data.searcher() as searcher:
         result = searcher.search(q_docs, limit=doc_limit)
-        print("Documents found: ", len(result))
+        print_log("Documents found: %d" % len(result))
         for result in result:
             yield result
 
@@ -52,6 +53,6 @@ def find_in_bag_of_words(ix_data, query, doc_limit=10):
     q_docs = parser.parse(query)
     with ix_data.searcher() as searcher:
         result = searcher.search(q_docs, limit=doc_limit)
-        print("Documents found: ", len(result))
+        print_log("Documents found: %d" % len(result))
         for result in result:
             yield result
