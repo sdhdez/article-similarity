@@ -172,7 +172,7 @@ def save_sample_aminer_related(data_path):
             with ix_data.searcher() as searcher:
                 print("Sampling related documents ...", file=sys.stderr)
                 # Threshold to get nrand*doc_limit random documents
-                roulette_threshold = (nrand*(doc_limit*0.2))/reader.doc_count()
+                roulette_threshold = ((nrand*1.25)*doc_limit)/reader.doc_count()
                 # Init pseudo-random generator
                 random.seed(fixed_seed)
                 print(" - Seed: %d, \
@@ -242,7 +242,7 @@ def save_sample_aminer_random(data_path):
         with ix_data.reader() as reader:
             print("Sampling random documents ...", file=sys.stderr)
             # Threshold to get nrand*doc_limit random documents
-            expected_docs = nrand*doc_limit
+            expected_docs = nrand*doc_limit*1.25
             roulette_threshold = expected_docs/reader.doc_count()
             # Init pseudo-random generator
             random.seed(fixed_seed)
