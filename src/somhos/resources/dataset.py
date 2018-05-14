@@ -11,7 +11,7 @@ from whoosh import qparser
 from whoosh.qparser import QueryParser
 # from whoosh.writing import BufferedWriter
 
-from methods.useful import print_log
+from somhos.methods.useful import print_log
 
 INDEX_DATA = "/index-data"
 SAMPLE_IDS = "/sample-ids"

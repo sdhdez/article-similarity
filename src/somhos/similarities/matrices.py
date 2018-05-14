@@ -6,11 +6,11 @@ import numpy as np
 from scipy import spatial
 import gensim
 
-from resources import dataset as rd
-import methods.useful as mu
-from methods.useful import print_log
+from somhos.resources import dataset as rd
+import somhos.methods.useful as mu
+from somhos.methods.useful import print_log
 
-DEAULT_WORDVECTORS = './resources/GoogleNews-vectors-negative300.bin'
+DEAULT_WORDVECTORS = './src/somhos/resources/GoogleNews-vectors-negative300.bin'
 MEASURES_PATH = '/measures'
 DOCS_CENTROIDS_PATH = '/docs-centroids'
 

@@ -4,8 +4,8 @@ from whoosh.index import open_dir
 from whoosh import qparser
 from whoosh.qparser import QueryParser
 
-from resources.dataset import INDEX_DATA
-from methods.useful import print_log
+from somhos.resources.dataset import INDEX_DATA
+from somhos.methods.useful import print_log
 
 def get_cursor(index_data_path):
     """Return Whoosh cursor to given path"""

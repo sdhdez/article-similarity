@@ -1,3 +1,11 @@
+*.tar.gz
+*.bin
+docker-compose.yml
+docker-compose.yml-gpu
+volumes/.bash_history
+volumes/.bashrc
+volumes/.empty
+volumes/jupyter_notebook_config.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

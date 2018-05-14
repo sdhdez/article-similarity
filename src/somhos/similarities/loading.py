@@ -1,9 +1,8 @@
 """Module to load similarity"""
 import numpy as np
 
-from similarities import matrices as sm
-from resources import dataset as rd
-from methods.useful import print_log
+from somhos.similarities import matrices as sm
+from somhos.resources import dataset as rd
 
 def load_matrix(data_path, method="jaccard", related_docs=True):
     # Get suffix for current sample parameters
