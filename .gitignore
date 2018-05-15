@@ -2,10 +2,10 @@
 *.bin
 docker-compose.yml
 docker-compose.yml-gpu
-volumes/.bash_history
-volumes/.bashrc
-volumes/.empty
-volumes/jupyter_notebook_config.py
+docker/volumes/.bash_history
+docker/volumes/.bashrc
+docker/volumes/.empty
+docker/volumes/jupyter_notebook_config.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
