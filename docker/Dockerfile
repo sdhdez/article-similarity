@@ -1,5 +1,5 @@
 FROM sdavidhdez/ml-py3:latest
-LABEL maintainer="Simon D. Hernandez <sdhdez@totum.one>"
+MAINTAINER Simon D. Hernandez <sdhdez@totum.one>
 
 ARG user=jupyterlab
 
