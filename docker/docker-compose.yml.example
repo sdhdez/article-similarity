@@ -1,22 +1,22 @@
 version: '3'
 services:
-  tf-extras:
-    image: sdavidhdez/docker-tensorflow-py3-extras:1.5.0-py3
-    restart: always
-    container_name: 'tf-extras'
-    ports:
-      - '8888:8888'
-    volumes:
-      - '/home/snov/Projects/univ-paris13/nlp/code/context-in-articles/notebooks:/notebooks/notebooks'
-      - '/home/snov/nltk_data:/root/nltk_data'
-      - '/home/snov/Projects/univ-paris13/nlp/code/context-in-articles/volumes/test-gpu.py:/notebooks/test-gpu.py'
-    #  - './volumes/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py'
-    # environment:
-    #  - VIRTUAL_HOST=jlab.totum.one
-    #  - VIRTUAL_PORT=8888
-    #  - LETSENCRYPT_HOST= 'jlab.totum.one'
-
-#networks:
-#  default:
-#    external:
-#      name: webproxy
+    artsim:
+        image: sdavidhdez/artsim:latest
+        container_name: 'artsim'
+        ports:
+            - '8888:8888'
+        volumes:
+            - '../:/home/jupyterlab/app/'
+            #- './nltk_data/:/home/jupyterlab/nltk_data/'
+            #- './volumes/test-gpu.py:/home/jupyterlab/test-gpu.py'
+            #- './volumes/jupyter_notebook_config.py:/home/jupyterlab/.jupyter/jupyter_notebook_config.py'
+            - './volumes/.bashrc:/home/jupyterlab/.bashrc'
+            - './volumes/.bash_history:/home/jupyterlab/.bash_history'
+        # environment:
+            # - VIRTUAL_HOST=somedomain
+            # - VIRTUAL_PORT=8888
+            # - LETSENCRYPT_HOST= 'somedomain'
+# networks:
+#     default:
+#         external:
+#             name: webproxy
