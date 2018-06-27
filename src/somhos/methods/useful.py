@@ -4,6 +4,7 @@ import time
 import gc
 import tensorflow as tf
 import numpy as np
+import hashlib as hl
 
 def get_svd_reconstructions(sess, matrices_list, n_elements, nsv=1):
     """ Receive a list of matrices of same shape to reconstruct using nsv singular values. """
@@ -70,3 +71,9 @@ def print_log(log, cond=True, echo=True, persistent=True, file=sys.stderr):
             with open("article-similarity.log", "a") as flog:
                 log = "\n" + time.strftime("%Y/%m/%d %H:%M ", time.gmtime()) + str(log)
                 flog.write(log)
+
+def hash_16B(phrase):
+    """Receive string and return first 16 digits of its md5"""
+    phrase.lower().encode('utf-8')
+    phrase_hash_16 = hl.md5(phrase).hexdigest()[:16]
+    return phrase_hash_16

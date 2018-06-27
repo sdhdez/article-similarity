@@ -157,7 +157,7 @@ def load_merge_pickles(path_to_pickles, file_preffix="%d"):
 def save_dict_pickles(path_to_pickles, content, file_preffix="%d"):
     """Receive dictionary an save it into pickle files"""
     len_dic = len(content)
-    print_log(" - Saving %d measures" % len_dic)
+    print_log(" - Saving %d dict" % len_dic)
     if not os.path.exists(path_to_pickles):
         os.mkdir(path_to_pickles)
     partial_content = {}
