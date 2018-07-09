@@ -2,9 +2,11 @@
 import sys
 import time
 import gc
+import hashlib as hl
+from pathlib import Path
+import pickle
 import tensorflow as tf
 import numpy as np
-import hashlib as hl
 
 def get_svd_reconstructions(sess, matrices_list, n_elements, nsv=1):
     """ Receive a list of matrices of same shape to reconstruct using nsv singular values. """
@@ -72,8 +74,29 @@ def print_log(log, cond=True, echo=True, persistent=True, file=sys.stderr):
                 log = "\n" + time.strftime("%Y/%m/%d %H:%M ", time.gmtime()) + str(log)
                 flog.write(log)
 
-def hash_16B(phrase):
+def lower_utf8(phrase):
+    """Receive string and return utf-8 string lowered"""
+    return phrase.lower().encode('utf-8')
+
+def hash_16bytes(phrase):
     """Receive string and return first 16 digits of its md5"""
-    phrase.lower().encode('utf-8')
     phrase_hash_16 = hl.md5(phrase).hexdigest()[:16]
     return phrase_hash_16
+
+def load_pickle(pickle_path):
+    """Receive path and load pickle"""
+    if Path(pickle_path).exists():
+        with open(pickle_path, "rb") as fin:
+            pickle_data = pickle.load(fin)
+    else:
+        print_log("Path do not exists: %s" % pickle_path, persistent=False)
+        pickle_data = None
+    return pickle_data
+
+def save_pickle(data, pickle_path):
+    """Receive path and save data to pickle file"""
+    if not Path(pickle_path).exists():
+        with open(pickle_path, "wb") as fout:
+            pickle.dump(data, fout, pickle.HIGHEST_PROTOCOL)
+    else:
+        print_log("Path exists: %s" % pickle_path, persistent=False)

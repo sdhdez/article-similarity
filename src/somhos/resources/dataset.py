@@ -71,7 +71,7 @@ def get_filenames(path_resources, ext=EXT_AMINER_TXT):
                 path_filename = os.path.join(path_name, filename)
                 yield path_filename
 
-def get_aminer_txt(pfilename):
+def get_aminer_txt(pfilename, merge_text_title=False):
     """Receive path to a file in aminer txt format and
     yield the fields of each document in the file."""
     # Open file for reading
@@ -95,7 +95,10 @@ def get_aminer_txt(pfilename):
             indexdoc = indexdoc_tmp
             # Yield document's fields
             # indexdoc, title, title + content
-            yield indexdoc, title, title if not text else title + " " + text
+            if not merge_text_title:
+                yield indexdoc, title, title if not text else title + " " + text
+            else:
+                yield indexdoc, title, text
             title, text = u"", u""
 
 def index_aminer_txt_in(documents_path):
