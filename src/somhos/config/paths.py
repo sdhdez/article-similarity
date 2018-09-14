@@ -73,6 +73,9 @@ SIM_TF_KEYPHRASES = SAMPLE_PATH + "/sim-tf-keyphrases.pkl"
 SIM_TF_IDF_TOKENS = SAMPLE_PATH + "/sim-tf-idf-tokens.pkl"
 SIM_TF_IDF_KEYPHRASES = SAMPLE_PATH + "/sim-tf-idf-keyphrases.pkl"
 
+SIM_LSI_TOKENS = SAMPLE_PATH + "/sim-lsi-tokens.pkl"
+SIM_LSI_KEYPHRASES = SAMPLE_PATH + "/sim-lsi-keyphrases.pkl"
+
 def get_relative_path(data_path, extra_path):
     """Merge path"""
     return data_path + extra_path
