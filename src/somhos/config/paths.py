@@ -76,6 +76,16 @@ SIM_TF_IDF_KEYPHRASES = SAMPLE_PATH + "/sim-tf-idf-keyphrases.pkl"
 SIM_LSI_TOKENS = SAMPLE_PATH + "/sim-lsi-tokens.pkl"
 SIM_LSI_KEYPHRASES = SAMPLE_PATH + "/sim-lsi-keyphrases.pkl"
 
+SIM_LDA_TOKENS = SAMPLE_PATH + "/sim-lda-tokens.pkl"
+SIM_LDA_KEYPHRASES = SAMPLE_PATH + "/sim-lda-keyphrases.pkl"
+
+# Wikipedia
+WIKIPEDIA_RESOURCES = RESOURCES_PATH + '/wikipedia'
+WIKI_PAGES = WIKIPEDIA_RESOURCES + '/wiki-pages.pkl'
+PAGES_DICTIONARY = WIKIPEDIA_RESOURCES + '/pages_dictionary.pkl'
+PAGE_REDIRECT = WIKIPEDIA_RESOURCES + '/page_redirect.pkl'
+REDIRECT_PAGE = WIKIPEDIA_RESOURCES + '/redirect_page.pkl'
+
 def get_relative_path(data_path, extra_path):
     """Merge path"""
     return data_path + extra_path
