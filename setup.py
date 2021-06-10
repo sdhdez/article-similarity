@@ -33,5 +33,5 @@ setup(name='somhos',
       package_data={'somhos': []},
       python_requires='>=3.5, <4',
       platform='any',
-      install_requires=['kleis-keyphrase-extraction', 'whoosh', 'tensorflow', 'scipy', 'gensim', 'jupyterlab'],
+      install_requires=['kleis-keyphrase-extraction', 'whoosh', 'scipy', 'gensim', 'jupyterlab'],
       zip_safe=False)

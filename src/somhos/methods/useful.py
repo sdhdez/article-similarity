@@ -5,7 +5,7 @@ import gc
 import hashlib as hl
 from pathlib import Path
 import pickle
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 
 def get_svd_reconstructions(sess, matrices_list, n_elements, nsv=1):

@@ -11,6 +11,7 @@ AMINER_ACM_SUFFIX = "/acm.txt"
 KPS_DIRECTORY_INVERSE_SUFFIX = "/kps-directory-inverse-simpseq10-nopost.pkl"
 KPS_DIRECTORY_SUFFIX = "/kps-directory-simpseq10-nopost.pkl"
 KPS_NORMALIZED_SUFFIX = "/kps-normalized-simpseq10-nopost.pkl"
+KPS_DOCS_IDS_SUFFIX = "/kps-docs-ids-simpseq10-nopost.pkl"
 # Sample doc ids, content, measures and matrices
 SAMPLE_PATH = "/samples"
 DOCS_SAMPLE_A_SUFFIX = SAMPLE_PATH + "/docs-sample-a.pkl"
@@ -81,10 +82,14 @@ SIM_LDA_KEYPHRASES = SAMPLE_PATH + "/sim-lda-keyphrases.pkl"
 
 # Wikipedia
 WIKIPEDIA_RESOURCES = RESOURCES_PATH + '/wikipedia'
-WIKI_PAGES = WIKIPEDIA_RESOURCES + '/wiki-pages.pkl'
-PAGES_DICTIONARY = WIKIPEDIA_RESOURCES + '/pages_dictionary.pkl'
-PAGE_REDIRECT = WIKIPEDIA_RESOURCES + '/page_redirect.pkl'
-REDIRECT_PAGE = WIKIPEDIA_RESOURCES + '/redirect_page.pkl'
+PAGE_DICTIONARY = WIKIPEDIA_RESOURCES + '/page_dictionary.pkl'
+PAGE_INVERSE_DICT = WIKIPEDIA_RESOURCES + '/page_inverse_dict.pkl'
+PAGE_REDIRECTS = WIKIPEDIA_RESOURCES + '/page_redirects.pkl'
+REDIRECT_PAGES = WIKIPEDIA_RESOURCES + '/redirect_pages.pkl'
+
+HASHES_INTERSECTION = WIKIPEDIA_RESOURCES + '/hashes-intersection.pkl'
+
+KEYPHRASEVARIATIONS_DOCS = WIKIPEDIA_RESOURCES + '/keyphrasevariations_docs.pkl'
 
 def get_relative_path(data_path, extra_path):
     """Merge path"""
